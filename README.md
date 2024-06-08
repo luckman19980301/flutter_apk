@@ -1,6 +1,6 @@
-# chat_app
+# meet_v_chat
 
-Chat app using Firebase Auth and Storage
+Chat app using Firebase services
 
 ## Getting Started
 

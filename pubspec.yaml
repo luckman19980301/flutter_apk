@@ -1,5 +1,5 @@
 name: chat_app
-description: "Chat app using Firebase Auth and Storage"
+description: "Chat app using Firebase services"
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -13,6 +13,10 @@ dependencies:
 
   cupertino_icons: ^1.0.6
   font_awesome_flutter: ^10.7.0
+  firebase_core: ^3.0.0
+  firebase_auth: ^5.0.0
+  cloud_firestore: ^5.0.0
+  firebase_storage: ^12.0.0
 
 dev_dependencies:
   flutter_test:
