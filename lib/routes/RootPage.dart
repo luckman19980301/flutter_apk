@@ -1,8 +1,8 @@
-import 'package:chat_app/components/AppHeader.dart';
-import 'package:chat_app/components/AppIcon.dart';
-import 'package:chat_app/components/Modal.dart';
-import 'package:chat_app/routes/SignInPage.dart';
-import 'package:chat_app/routes/SignUpPage.dart';
+import 'package:meet_chat/components/AppHeader.dart';
+import 'package:meet_chat/components/AppIcon.dart';
+import 'package:meet_chat/components/Modal.dart';
+import 'package:meet_chat/routes/SignInPage.dart';
+import 'package:meet_chat/routes/SignUpPage.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 

@@ -1,7 +1,11 @@
-import 'package:chat_app/routes/SignInPage.dart';
+import 'package:meet_chat/routes/HomePage.dart';
+import 'package:meet_chat/routes/SignInPage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../components/AppHeader.dart' show AppHeader;
-import 'package:chat_app/components/AppIcon.dart';
+import 'package:meet_chat/components/AppIcon.dart';
 import 'package:flutter/material.dart';
+
+final _authenticationProvider = FirebaseAuth.instance;
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -23,7 +27,7 @@ class _SignUpPageState extends State<SignUpPage> {
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  void onSubmit() {
+  void onSubmit() async {
     final formState = _formKey.currentState;
     if (formState != null && formState.validate()) {
       if (_passwordController.text != _repeatPasswordController.text) {
@@ -31,10 +35,29 @@ class _SignUpPageState extends State<SignUpPage> {
           _errorMessage = 'Passwords do not match';
         });
       } else {
-        setState(() {
-          _errorMessage = '';
-          // Handle successful form submission
-        });
+        try{
+
+          final newUser = await _authenticationProvider.createUserWithEmailAndPassword(
+              email: _emailController.value.text,
+              password: _passwordController.value.text
+          );
+
+          if(newUser.user != null){
+            Navigator.pushNamed(context, HomePage.route);
+          }
+        } on FirebaseAuthException catch (err){
+          if(err.code == 'email-already-in-use'){
+            setState(() {
+              _errorMessage = err.message.toString();
+            });
+            ScaffoldMessenger.of(context).clearSnackBars();
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
+              err.message.toString() ?? 'Authentication failed'
+            )));
+          }
+        }
+
+
       }
     }
   }
@@ -63,10 +86,11 @@ class _SignUpPageState extends State<SignUpPage> {
               ),
               const SizedBox(height: 20),
               TextFormField(
+                keyboardType: TextInputType.name,
                 controller: _firstnameController,
                 decoration: const InputDecoration(hintText: 'Firstname'),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  if (value == null || value.trim().isEmpty) {
                     return 'Please enter your firstname';
                   }
                   return null;
@@ -74,10 +98,11 @@ class _SignUpPageState extends State<SignUpPage> {
               ),
               const SizedBox(height: 10),
               TextFormField(
+                keyboardType: TextInputType.name,
                 controller: _lastnameController,
                 decoration: const InputDecoration(hintText: 'Lastname'),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  if (value == null || value.trim().isEmpty) {
                     return 'Please enter your lastname';
                   }
                   return null;
@@ -85,22 +110,27 @@ class _SignUpPageState extends State<SignUpPage> {
               ),
               const SizedBox(height: 10),
               TextFormField(
+                keyboardType: TextInputType.emailAddress,
                 controller: _emailController,
                 decoration: const InputDecoration(hintText: 'Email'),
+                textCapitalization: TextCapitalization.none,
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your email';
+                  if (value == null || value.trim().isEmpty || !value.contains('@')) {
+                    return 'Please enter a valid email address';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 10),
               TextFormField(
+                obscuringCharacter: "#",
                 controller: _passwordController,
                 decoration: const InputDecoration(hintText: 'Password'),
+                textCapitalization: TextCapitalization.none,
+                autocorrect: false,
                 obscureText: true,
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  if (value == null || value.trim().isEmpty) {
                     return 'Please enter your password';
                   }
                   return null;
@@ -110,9 +140,11 @@ class _SignUpPageState extends State<SignUpPage> {
               TextFormField(
                 controller: _repeatPasswordController,
                 decoration: const InputDecoration(hintText: 'Repeat password'),
+                textCapitalization: TextCapitalization.none,
+                autocorrect: false,
                 obscureText: true,
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  if (value == null || value.trim().isEmpty) {
                     return 'Please repeat your password';
                   }
                   return null;

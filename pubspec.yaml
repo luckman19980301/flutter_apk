@@ -1,11 +1,11 @@
-name: chat_app
-description: "Chat app using Firebase services"
+name: meet_chat
+description: "A new Flutter project."
 publish_to: 'none'
 
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.3.4 <4.0.0'
+  sdk: '>=3.4.3 <4.0.0'
 
 dependencies:
   flutter:
@@ -25,6 +25,6 @@ dev_dependencies:
   flutter_lints: ^3.0.0
 
 flutter:
-
   uses-material-design: true
 
+  assets:

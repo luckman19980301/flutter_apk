@@ -1,12 +1,20 @@
-import 'package:chat_app/routes/HomePage.dart';
-import 'package:chat_app/routes/RootPage.dart';
-import 'package:chat_app/routes/SignInPage.dart';
-import 'package:chat_app/routes/SignUpPage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:meet_chat/components/SplashScreen.dart';
+import 'package:meet_chat/firebase_options.dart';
+import 'package:meet_chat/routes/HomePage.dart';
+import 'package:meet_chat/routes/RootPage.dart';
+import 'package:meet_chat/routes/SignInPage.dart';
+import 'package:meet_chat/routes/SignUpPage.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import 'constants/ThemeSchema.dart';
 
-void main() {
+void main() async{
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform
+  );
   runApp(const MyApp());
 }
 
@@ -26,6 +34,19 @@ class MyApp extends StatelessWidget {
         SignUpPage.route: (context) => const SignUpPage(),
         RootPage.route: (context) => const RootPage()
       },
+      home: StreamBuilder(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (ctx, snapshot) {
+          if(snapshot.connectionState == ConnectionState.waiting){
+            return const Splashscreen();
+          }
+
+          if(snapshot.hasData){
+            return const HomePage();
+          }
+          return const RootPage();
+        },
+      ),
     );
   }
 }

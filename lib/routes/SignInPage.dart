@@ -1,7 +1,13 @@
-import 'package:chat_app/components/AppHeader.dart';
-import 'package:chat_app/components/AppIcon.dart';
-import 'package:chat_app/routes/SignUpPage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:meet_chat/components/AppHeader.dart';
+import 'package:meet_chat/components/AppIcon.dart';
+import 'package:meet_chat/routes/SignUpPage.dart';
 import 'package:flutter/material.dart';
+
+import 'HomePage.dart';
+
+final _authenticationProvider = FirebaseAuth.instance;
+
 
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
@@ -18,12 +24,34 @@ class _SignInPageState extends State<SignInPage> {
   final TextEditingController _passwordController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  void onSubmit() {
-    if (_formKey.currentState!.validate()) {
-      // Handle form submission and set error message if login fails
-      setState(() {
-        _errorMessage = 'Invalid email or password';
-      });
+  void onSubmit() async {
+    final formState = _formKey.currentState;
+    if (formState != null && formState.validate()) {
+
+        try{
+
+          final user = await _authenticationProvider.signInWithEmailAndPassword(
+              email: _emailController.value.text,
+              password: _passwordController.value.text
+          );
+
+          print(user);
+
+          if(user.user != null){
+            Navigator.pushNamed(context, HomePage.route);
+          }
+        } on FirebaseAuthException catch (err){
+          if(err.code == 'email-already-in-use'){
+            setState(() {
+              _errorMessage = err.message.toString();
+            });
+            ScaffoldMessenger.of(context).clearSnackBars();
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
+                err.message.toString() ?? 'Authentication failed'
+            )));
+          }
+
+      }
     }
   }
 

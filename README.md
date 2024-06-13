@@ -1,6 +1,6 @@
-# meet_v_chat
+# meet_chat
 
-Chat app using Firebase services
+A new Flutter project.
 
 ## Getting Started
 
