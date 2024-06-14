@@ -1,11 +1,10 @@
+import 'package:meet_chat/core/globals.dart';
+import 'package:meet_chat/core/services/AuthenticationService.dart';
 import 'package:meet_chat/routes/HomePage.dart';
 import 'package:meet_chat/routes/SignInPage.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../components/AppHeader.dart' show AppHeader;
 import 'package:meet_chat/components/AppIcon.dart';
 import 'package:flutter/material.dart';
-
-final _authenticationProvider = FirebaseAuth.instance;
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -23,9 +22,12 @@ class _SignUpPageState extends State<SignUpPage> {
   final TextEditingController _lastnameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _repeatPasswordController = TextEditingController();
+  final TextEditingController _repeatPasswordController =
+      TextEditingController();
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final IAuthenticationService _authenticationService =
+      injector<IAuthenticationService>();
 
   void onSubmit() async {
     final formState = _formKey.currentState;
@@ -35,29 +37,23 @@ class _SignUpPageState extends State<SignUpPage> {
           _errorMessage = 'Passwords do not match';
         });
       } else {
-        try{
+        var email = _emailController.value.text;
+        var password = _passwordController.value.text;
+        var response =
+            await _authenticationService.registerAccount(email, password);
 
-          final newUser = await _authenticationProvider.createUserWithEmailAndPassword(
-              email: _emailController.value.text,
-              password: _passwordController.value.text
-          );
-
-          if(newUser.user != null){
-            Navigator.pushNamed(context, HomePage.route);
-          }
-        } on FirebaseAuthException catch (err){
-          if(err.code == 'email-already-in-use'){
-            setState(() {
-              _errorMessage = err.message.toString();
-            });
-            ScaffoldMessenger.of(context).clearSnackBars();
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
-              err.message.toString() ?? 'Authentication failed'
-            )));
-          }
+        var newUser = response.data;
+        if (newUser == null) {
+          setState(() {
+            _errorMessage = response.message.toString();
+          });
+          ScaffoldMessenger.of(context).clearSnackBars();
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(response.message ?? 'Authentication failed')));
         }
-
-
+        if (newUser != null) {
+          Navigator.pushNamed(context, HomePage.route);
+        }
       }
     }
   }
@@ -80,7 +76,8 @@ class _SignUpPageState extends State<SignUpPage> {
                   AppIcon(size: 50.0),
                   Text(
                     "Create new account",
-                    style: TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold),
+                    style:
+                        TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold),
                   )
                 ],
               ),
@@ -115,7 +112,9 @@ class _SignUpPageState extends State<SignUpPage> {
                 decoration: const InputDecoration(hintText: 'Email'),
                 textCapitalization: TextCapitalization.none,
                 validator: (value) {
-                  if (value == null || value.trim().isEmpty || !value.contains('@')) {
+                  if (value == null ||
+                      value.trim().isEmpty ||
+                      !value.contains('@')) {
                     return 'Please enter a valid email address';
                   }
                   return null;

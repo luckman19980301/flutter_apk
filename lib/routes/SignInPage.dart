@@ -1,13 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:meet_chat/components/AppHeader.dart';
 import 'package:meet_chat/components/AppIcon.dart';
+import 'package:meet_chat/core/globals.dart';
+import 'package:meet_chat/core/services/AuthenticationService.dart';
 import 'package:meet_chat/routes/SignUpPage.dart';
 import 'package:flutter/material.dart';
 
 import 'HomePage.dart';
-
-final _authenticationProvider = FirebaseAuth.instance;
-
 
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
@@ -22,35 +21,32 @@ class _SignInPageState extends State<SignInPage> {
   String _errorMessage = '';
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final IAuthenticationService _authenticationService =
+      injector<IAuthenticationService>();
 
   void onSubmit() async {
     final formState = _formKey.currentState;
     if (formState != null && formState.validate()) {
+      var email = _emailController.value.text;
+      var password = _passwordController.value.text;
+      var response = await _authenticationService.login(email, password);
 
-        try{
+      var user = response.data;
 
-          final user = await _authenticationProvider.signInWithEmailAndPassword(
-              email: _emailController.value.text,
-              password: _passwordController.value.text
-          );
+      if (user == null) {
+        setState(() {
+          _errorMessage = response.message.toString();
+        });
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content:
+                Text(response.message.toString() ?? 'Authentication failed')));
+      }
 
-          print(user);
-
-          if(user.user != null){
-            Navigator.pushNamed(context, HomePage.route);
-          }
-        } on FirebaseAuthException catch (err){
-          if(err.code == 'email-already-in-use'){
-            setState(() {
-              _errorMessage = err.message.toString();
-            });
-            ScaffoldMessenger.of(context).clearSnackBars();
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
-                err.message.toString() ?? 'Authentication failed'
-            )));
-          }
-
+      if (user != null) {
+        Navigator.pushNamed(context, HomePage.route);
       }
     }
   }
@@ -73,7 +69,8 @@ class _SignInPageState extends State<SignInPage> {
                   AppIcon(size: 50.0),
                   Text(
                     "Sign into your account",
-                    style: TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold),
+                    style:
+                        TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),

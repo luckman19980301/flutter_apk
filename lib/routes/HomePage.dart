@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:meet_chat/core/globals.dart';
 
 import '../components/AppHeader.dart';
 
@@ -13,8 +14,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final _authenticationProvider = FirebaseAuth.instance;
-
   late User loggedInUser;
 
   @override
@@ -26,7 +25,7 @@ class _HomePageState extends State<HomePage> {
 
   void getCurrentUser() async {
     try {
-      final user = await _authenticationProvider.currentUser;
+      final user = await FIREBASE_INSTANCE.currentUser;
       if (user != null) {
         loggedInUser = user;
         print(loggedInUser.email);
@@ -40,11 +39,9 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return const Scaffold(
       resizeToAvoidBottomInset: true,
-      appBar: const AppHeader(title: "Chat - Sign in"),
+      appBar: AppHeader(title: "Chat - Sign in"),
       body: Column(
-        children: [
-          Text("Logged in")
-        ],
+        children: [Text("Logged in")],
       ),
     );
   }

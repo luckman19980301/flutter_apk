@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:meet_chat/components/SplashScreen.dart';
+import 'package:meet_chat/core/dependencies.dart';
+import 'package:meet_chat/core/globals.dart';
 import 'package:meet_chat/firebase_options.dart';
 import 'package:meet_chat/routes/HomePage.dart';
 import 'package:meet_chat/routes/RootPage.dart';
@@ -15,35 +17,36 @@ void main() async{
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform
   );
+  setupDependencies();
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: themeSchema,
-      initialRoute: RootPage.route,
+      initialRoute: FIREBASE_INSTANCE.currentUser != null ? HomePage.route : RootPage.route,
       routes: {
         HomePage.route: (context) => const HomePage(),
         SignInPage.route: (context) => const SignInPage(),
         SignUpPage.route: (context) => const SignUpPage(),
         RootPage.route: (context) => const RootPage()
       },
-      home: StreamBuilder(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (ctx, snapshot) {
-          if(snapshot.connectionState == ConnectionState.waiting){
+      home: StreamBuilder<User?>(
+        stream: FIREBASE_INSTANCE.authStateChanges(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Splashscreen();
           }
 
-          if(snapshot.hasData){
+          if (snapshot.hasData) {
             return const HomePage();
           }
+
           return const RootPage();
         },
       ),
