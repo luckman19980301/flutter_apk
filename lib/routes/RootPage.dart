@@ -1,8 +1,7 @@
 import 'package:meet_chat/components/AppHeader.dart';
 import 'package:meet_chat/components/AppIcon.dart';
 import 'package:meet_chat/components/Modal.dart';
-import 'package:meet_chat/routes/SignInPage.dart';
-import 'package:meet_chat/routes/SignUpPage.dart';
+import 'package:meet_chat/routes/AuthPage.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -48,7 +47,7 @@ class _RootPageState extends State<RootPage> with SingleTickerProviderStateMixin
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: const AppHeader(title: "Chat - Create profile"),
+      appBar: AppHeader(title: "Chat - Create profile"),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -64,14 +63,14 @@ class _RootPageState extends State<RootPage> with SingleTickerProviderStateMixin
               children: [
                 ElevatedButton(
                   onPressed: () {
-                    Navigator.pushNamed(context, SignInPage.route);
+                    Navigator.pushNamed(context, AuthPage.loginRoute);
                   },
                   child: const Text("Sign in"),
                 ),
                 const SizedBox(height: 10.0),
                 ElevatedButton(
                   onPressed: () {
-                    Navigator.pushNamed(context, SignUpPage.route);
+                    Navigator.pushNamed(context,  AuthPage.registerRoute);
                   },
                   child: const Text("Create account"),
                 ),

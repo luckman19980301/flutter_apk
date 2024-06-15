@@ -37,10 +37,10 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: AppHeader(title: "Chat - Sign in"),
-      body: Column(
+      body: const Column(
         children: [Text("Logged in")],
       ),
     );

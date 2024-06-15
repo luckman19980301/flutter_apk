@@ -1,33 +1,34 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:meet_chat/core/globals.dart';
-import 'package:meet_chat/core/services/AuthenticationService.dart';
-import 'package:meet_chat/routes/SignInPage.dart';
+import 'package:meet_chat/routes/AuthPage.dart';
 
-class AppHeader extends StatelessWidget implements PreferredSizeWidget {
-  const AppHeader({super.key, required this.title});
+class AppHeader extends StatefulWidget implements PreferredSizeWidget {
+  AppHeader({super.key, required this.title});
 
   final String title;
+  late User? user = FIREBASE_INSTANCE.currentUser;
+
+  @override
+  State<AppHeader> createState() => _AppHeaderState();
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+}
+
+class _AppHeaderState extends State<AppHeader> {
 
   void _logout(BuildContext context) async {
-    final user = await FIREBASE_INSTANCE.currentUser;
-    if (user != null) {
-      print("LOGGED IN USER EMAIL: ${user.email}");
-    }
-    final response = await injector<IAuthenticationService>().logout();
-    if (response.message == "Signed out successfully") {
-      Navigator.pushReplacementNamed(context, SignInPage.route);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(response.message.toString())),
-      );
-    }
+    await FirebaseAuth.instance.signOut();
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => const AuthPage(loginMode: true)),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      title: Text(title),
+      title: Text(widget.title),
       actions: <Widget>[
         PopupMenuButton<String>(
           onSelected: (String result) {
@@ -35,25 +36,33 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
               _logout(context);
             }
           },
-          itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-            const PopupMenuItem<String>(
-              value: 'Option 1',
-              child: Text('Option 1'),
-            ),
-            const PopupMenuItem<String>(
-              value: 'Option 2',
-              child: Text('Option 2'),
-            ),
-            const PopupMenuItem<String>(
-              value: 'Logout',
-              child: Text('Logout'),
-            ),
-          ],
+          itemBuilder: (BuildContext context) {
+            List<PopupMenuEntry<String>> menuItems = [
+              const PopupMenuItem<String>(
+                value: 'Option 1',
+                child: Text('Option 1'),
+              ),
+              const PopupMenuItem<String>(
+                value: 'Option 2',
+                child: Text('Option 2'),
+              ),
+            ];
+
+            if (widget.user != null) {
+              menuItems.add(
+                const PopupMenuItem<String>(
+                  value: 'Logout',
+                  child: Text('Logout'),
+                ),
+              );
+            }
+
+            return menuItems;
+          },
         ),
       ],
     );
   }
 
-  @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
 }
