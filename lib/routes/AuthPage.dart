@@ -1,10 +1,17 @@
+import 'dart:io' show File;
+
 import 'package:flutter/material.dart';
 import 'package:meet_chat/components/AppHeader.dart';
 import 'package:meet_chat/components/AppIcon.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:meet_chat/components/forms/UserImagePicker.dart';
+import 'package:meet_chat/components/forms/GenderSelectionInputButton.dart';
 import 'package:meet_chat/core/globals.dart';
 import 'package:meet_chat/core/models/ServiceResponse.dart';
+import 'package:meet_chat/core/models/UserModel.dart';
 import 'package:meet_chat/core/services/AuthenticationService.dart';
+import 'package:meet_chat/core/services/DatabaseService.dart';
+import 'package:meet_chat/core/services/StorageService.dart';
 import 'package:meet_chat/routes/UserProfile.dart';
 
 class AuthPage extends StatefulWidget {
@@ -25,19 +32,35 @@ class _AuthPageState extends State<AuthPage> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _repeatPasswordController = TextEditingController();
 
+  late File? _selectedImage;
+  late bool isUploading = false;
+  Gender _selectedGender = Gender.Male;
+
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  String get submitButtonText => widget.loginMode ? "Sign in" : "Create account";
-  String get titlePageText => widget.loginMode ? "Sign into your account" : "Create an account";
-  String get redirectButtonLabelText => widget.loginMode ? "Don't have an account ?" : "Already have an account ?";
-  String get redirectButtonText => widget.loginMode ? "Create an account" : "Sign in";
+  String get submitButtonText =>
+      widget.loginMode ? "Sign in" : "Create account";
 
-  final IAuthenticationService _authenticationService = INJECTOR<IAuthenticationService>();
+  String get titlePageText =>
+      widget.loginMode ? "Sign into your account" : "Create an account";
+
+  String get redirectButtonLabelText => widget.loginMode
+      ? "Don't have an account ?"
+      : "Already have an account ?";
+
+  String get redirectButtonText =>
+      widget.loginMode ? "Create an account" : "Sign in";
+
+  final IAuthenticationService _authenticationService =
+      INJECTOR<IAuthenticationService>();
+  final IStorageService _storageService = INJECTOR<IStorageService>();
+  final IDatabaseService _databaseService = INJECTOR<IDatabaseService>();
 
   void onSubmit() async {
     final formState = _formKey.currentState;
 
-    if (!widget.loginMode && _passwordController.text != _repeatPasswordController.text) {
+    if (!widget.loginMode &&
+        _passwordController.text != _repeatPasswordController.text) {
       setState(() {
         _errorMessage = 'Passwords do not match.';
       });
@@ -48,13 +71,21 @@ class _AuthPageState extends State<AuthPage> {
       });
     }
 
+    if (!widget.loginMode && _selectedImage == null) {
+      setState(() {
+        _errorMessage = 'No image picked.';
+      });
+      return;
+    }
+
     try {
       if (formState != null && formState.validate()) {
         if (widget.loginMode) {
           String email = _emailController.value.text;
           String password = _passwordController.value.text;
 
-          ServiceResponse<UserCredential> response = await _authenticationService.login(email, password);
+          ServiceResponse<UserCredential> response =
+              await _authenticationService.login(email, password);
           if (response.success == true) {
             Navigator.pushNamed(context, UserProfile.route);
           } else {
@@ -63,22 +94,57 @@ class _AuthPageState extends State<AuthPage> {
             });
           }
         } else {
+          setState(() {
+            isUploading = true;
+          });
           String email = _emailController.value.text;
           String password = _passwordController.value.text;
 
-          ServiceResponse<UserCredential> response = await _authenticationService.registerAccount(email, password);
+          ServiceResponse<UserCredential> authResponse =
+              await _authenticationService.registerAccount(email, password);
+          String userId = authResponse.data?.user?.uid ?? '';
+          if (userId.isEmpty) {
+            setState(() {
+              _errorMessage = 'User ID is null or empty';
+              isUploading = false;
+            });
+            return;
+          }
+
+          ServiceResponse<String> storageResponse = await _storageService.uploadFile(
+              _selectedImage,
+              "${userId}_profilePicture",
+              "user_images");
+
+          if(storageResponse.success == false){
+            setState(() {
+              _errorMessage = storageResponse.message.toString();
+              isUploading = false;
+            });
+          }
+
+/*
+          ServiceResponse<bool> databaseResponse = await _databaseService.createUser(authResponse.data.user.uid, user)
+
+          final database = await FirebaseFirestore.instance
+              .collection("users")
+              .doc(response.data?.user?.uid)
+              .set({'username': 'to be done', 'email': email, 'imageUrl': url});
+
           if (response.success == true) {
             Navigator.pushNamed(context, UserProfile.route);
           } else {
             setState(() {
               _errorMessage = response.message.toString();
+              isUploading = false;
             });
-          }
+          }*/
         }
       }
     } on FirebaseAuthException catch (err) {
       setState(() {
         _errorMessage = err.message.toString();
+        isUploading = false;
       });
     }
   }
@@ -109,7 +175,8 @@ class _AuthPageState extends State<AuthPage> {
                   const AppIcon(size: 50.0),
                   Text(
                     titlePageText,
-                    style: const TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 20.0, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -151,7 +218,8 @@ class _AuthPageState extends State<AuthPage> {
                   textCapitalization: TextCapitalization.none,
                   obscureText: true,
                   obscuringCharacter: "#",
-                  decoration: const InputDecoration(hintText: 'Repeat Password'),
+                  decoration:
+                  const InputDecoration(hintText: 'Repeat Password'),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter a valid password.';
@@ -161,8 +229,26 @@ class _AuthPageState extends State<AuthPage> {
                     return null;
                   },
                 ),
+                const SizedBox(height: 20),
+                GenderSelectionRow(
+                  selectedGender: _selectedGender,
+                  onGenderSelected: (Gender gender) {
+                    setState(() {
+                      _selectedGender = gender;
+                    });
+                  },
+                ),
+                const SizedBox(height: 20),
+                UserImagePicker(
+                  onPickImage: (pickedImage) {
+                    setState(() {
+                      _selectedImage = pickedImage;
+                    });
+                  },
+                )
               ],
               const SizedBox(height: 20),
+              if (isUploading) ...[const CircularProgressIndicator()],
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
