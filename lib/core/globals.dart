@@ -9,3 +9,4 @@ final FirebaseAuth FIREBASE_INSTANCE = FirebaseAuth.instance;
 final FirebaseStorage FIREBASE_STORAGE = FirebaseStorage.instance;
 final User? CURRENT_USER = FIREBASE_INSTANCE.currentUser;
 final FirebaseFirestore FIREBASE_FIRESTORE = FirebaseFirestore.instance;
+

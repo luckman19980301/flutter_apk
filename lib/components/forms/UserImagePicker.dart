@@ -78,7 +78,7 @@ class _UserImagePickerState extends State<UserImagePicker> {
         ElevatedButton.icon(
           onPressed: () => _showPicker(context),
           icon: const Icon(Icons.image),
-          label: const Text('Pick Image'),
+          label: const Text('Select profile picture'),
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           ),

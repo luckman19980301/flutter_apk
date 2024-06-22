@@ -1,5 +1,4 @@
 import 'dart:io' show File;
-
 import 'package:flutter/material.dart';
 import 'package:meet_chat/components/AppHeader.dart';
 import 'package:meet_chat/components/AppIcon.dart';
@@ -12,6 +11,7 @@ import 'package:meet_chat/core/models/UserModel.dart';
 import 'package:meet_chat/core/services/AuthenticationService.dart';
 import 'package:meet_chat/core/services/DatabaseService.dart';
 import 'package:meet_chat/core/services/StorageService.dart';
+import 'package:meet_chat/routes/HomePage.dart';
 import 'package:meet_chat/routes/UserProfile.dart';
 
 class AuthPage extends StatefulWidget {
@@ -27,16 +27,18 @@ class AuthPage extends StatefulWidget {
 }
 
 class _AuthPageState extends State<AuthPage> {
-  String _errorMessage = '';
+  final TextEditingController _userNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _repeatPasswordController = TextEditingController();
+  final TextEditingController _repeatPasswordController =
+      TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  late File? _selectedImage;
+  File? _selectedImage;
   late bool isUploading = false;
   Gender _selectedGender = Gender.Male;
 
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  String _errorMessage = '';
 
   String get submitButtonText =>
       widget.loginMode ? "Sign in" : "Create account";
@@ -59,6 +61,12 @@ class _AuthPageState extends State<AuthPage> {
   void onSubmit() async {
     final formState = _formKey.currentState;
 
+    if (formState == null || !formState.validate()) {
+      setState(() {
+        _errorMessage = 'Please fill out all fields correctly.';
+      });
+      return;
+    }
     if (!widget.loginMode &&
         _passwordController.text != _repeatPasswordController.text) {
       setState(() {
@@ -73,72 +81,82 @@ class _AuthPageState extends State<AuthPage> {
 
     if (!widget.loginMode && _selectedImage == null) {
       setState(() {
-        _errorMessage = 'No image picked.';
+        _errorMessage = 'Please select a profile picture.';
       });
       return;
     }
 
     try {
-      if (formState != null && formState.validate()) {
-        if (widget.loginMode) {
-          String email = _emailController.value.text;
-          String password = _passwordController.value.text;
+      if (widget.loginMode) {
+        String email = _emailController.value.text;
+        String password = _passwordController.value.text;
 
-          ServiceResponse<UserCredential> response =
-              await _authenticationService.login(email, password);
-          if (response.success == true) {
-            Navigator.pushNamed(context, UserProfile.route);
-          } else {
-            setState(() {
-              _errorMessage = response.message.toString();
-            });
-          }
+        ServiceResponse<UserCredential> response =
+            await _authenticationService.login(email, password);
+        if (response.success == true) {
+          Navigator.pushNamed(context, HomePage.route);
         } else {
           setState(() {
-            isUploading = true;
+            _errorMessage = response.message.toString();
           });
-          String email = _emailController.value.text;
-          String password = _passwordController.value.text;
+          return;
+        }
+      } else {
+        setState(() {
+          isUploading = true;
+        });
+        String email = _emailController.value.text;
+        String password = _passwordController.value.text;
+        String username = _userNameController.value.text;
 
-          ServiceResponse<UserCredential> authResponse =
-              await _authenticationService.registerAccount(email, password);
-          String userId = authResponse.data?.user?.uid ?? '';
-          if (userId.isEmpty) {
-            setState(() {
-              _errorMessage = 'User ID is null or empty';
-              isUploading = false;
-            });
-            return;
-          }
+        ServiceResponse<UserCredential> authResponse =
+            await _authenticationService.registerAccount(email, password);
+        String userId = authResponse.data?.user?.uid ?? '';
+        if (userId.isEmpty || authResponse.success == false) {
+          setState(() {
+            _errorMessage = authResponse.message.toString();
+            isUploading = false;
+          });
+          return;
+        }
 
-          ServiceResponse<String> storageResponse = await _storageService.uploadFile(
-              _selectedImage,
-              "${userId}_profilePicture",
-              "user_images");
+        ServiceResponse<String> storageResponse =
+            await _storageService.uploadFile(
+                _selectedImage, "${userId}_profilePicture", "user_images");
+        if (storageResponse.success == false) {
+          setState(() {
+            _errorMessage = storageResponse.message.toString();
+            isUploading = false;
+          });
+          return;
+        }
 
-          if(storageResponse.success == false){
-            setState(() {
-              _errorMessage = storageResponse.message.toString();
-              isUploading = false;
-            });
-          }
+        UserModel newUser = UserModel(
+            Id: userId,
+            Username: username,
+            ProfilePictureUrl: storageResponse.data.toString(),
+            UserGender: _selectedGender,
+            Email: email);
+        ServiceResponse<bool> databaseResponse =
+            await _databaseService.createUser(userId, newUser);
+        if (databaseResponse.success == false) {
+          setState(() {
+            _errorMessage = databaseResponse.message.toString();
+            isUploading = false;
+          });
+          return;
+        }
 
-/*
-          ServiceResponse<bool> databaseResponse = await _databaseService.createUser(authResponse.data.user.uid, user)
-
-          final database = await FirebaseFirestore.instance
-              .collection("users")
-              .doc(response.data?.user?.uid)
-              .set({'username': 'to be done', 'email': email, 'imageUrl': url});
-
-          if (response.success == true) {
-            Navigator.pushNamed(context, UserProfile.route);
-          } else {
-            setState(() {
-              _errorMessage = response.message.toString();
-              isUploading = false;
-            });
-          }*/
+        if (authResponse.success == true &&
+            databaseResponse.success == true &&
+            storageResponse.success == true) {
+          Navigator.pushNamed(context, HomePage.route);
+        } else {
+          setState(() {
+            _errorMessage = "response.message.toString()";
+            isUploading = false;
+          });
+          return;
         }
       }
     } on FirebaseAuthException catch (err) {
@@ -180,7 +198,21 @@ class _AuthPageState extends State<AuthPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              if (!widget.loginMode) ...[
+                TextFormField(
+                  controller: _userNameController,
+                  keyboardType: TextInputType.text,
+                  textCapitalization: TextCapitalization.none,
+                  decoration: const InputDecoration(hintText: 'Username'),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter a valid username.';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+              const SizedBox(height: 10),
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
@@ -219,7 +251,7 @@ class _AuthPageState extends State<AuthPage> {
                   obscureText: true,
                   obscuringCharacter: "#",
                   decoration:
-                  const InputDecoration(hintText: 'Repeat Password'),
+                      const InputDecoration(hintText: 'Repeat Password'),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter a valid password.';

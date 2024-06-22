@@ -19,10 +19,12 @@ class AppHeader extends StatefulWidget implements PreferredSizeWidget {
 class _AppHeaderState extends State<AppHeader> {
 
   void _logout(BuildContext context) async {
-    await FirebaseAuth.instance.signOut();
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => const AuthPage(loginMode: true)),
-    );
+    await FIREBASE_INSTANCE.signOut();
+    if(FIREBASE_INSTANCE.currentUser == null){
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const AuthPage(loginMode: true)),
+      );
+    }
   }
 
   @override
