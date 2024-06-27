@@ -17,6 +17,9 @@ class UserModel {
   int? PhoneNumber;
   List<String>? Friends;
 
+  // Add a DocumentSnapshot field to store the original document snapshot
+  final DocumentSnapshot? documentSnapshot;
+
   UserModel({
     required this.Id,
     required this.Username,
@@ -28,6 +31,7 @@ class UserModel {
     required this.Email,
     this.PhoneNumber,
     this.Friends = const [],
+    this.documentSnapshot,
   });
 
   factory UserModel.fromDocument(DocumentSnapshot doc) {
@@ -44,6 +48,7 @@ class UserModel {
       UserGender: _genderFromString(data['gender']),
       PhoneNumber: data['phoneNumber'],
       Friends: List<String>.from(data['friends'] ?? []),
+      documentSnapshot: doc,  // Store the original document snapshot
     );
   }
 

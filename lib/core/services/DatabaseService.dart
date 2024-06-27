@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:meet_chat/core/globals.dart';
 import 'package:meet_chat/core/models/ServiceResponse.dart';
 import 'package:meet_chat/core/models/UserModel.dart';
@@ -5,7 +6,7 @@ import 'package:meet_chat/core/models/UserModel.dart';
 abstract class IDatabaseService {
   Future<ServiceResponse<bool>> createUser(String id, UserModel user);
   Future<ServiceResponse<UserModel>> getUser(String id);
-  Future<ServiceResponse<List<UserModel>>> getAllUsers();
+  Future<ServiceResponse<List<UserModel>>> getAllUsers({int limit, DocumentSnapshot? lastDocument});
   Future<ServiceResponse<List<UserModel>>> getFriends();
 }
 
@@ -53,9 +54,15 @@ class DatabaseService implements IDatabaseService {
 
 
   @override
-  Future<ServiceResponse<List<UserModel>>> getAllUsers() async {
+  Future<ServiceResponse<List<UserModel>>> getAllUsers({int limit = 10, DocumentSnapshot? lastDocument}) async {
     try {
-      final querySnapshot = await FIREBASE_FIRESTORE.collection("users").get();
+      Query query = FIREBASE_FIRESTORE.collection("users").limit(limit);
+
+      if (lastDocument != null) {
+        query = query.startAfterDocument(lastDocument);
+      }
+
+      final querySnapshot = await query.get();
 
       if (querySnapshot.docs.isNotEmpty) {
         List<UserModel> users = [];

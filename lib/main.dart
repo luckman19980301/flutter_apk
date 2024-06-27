@@ -1,5 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:meet_chat/components/SplashScreen.dart';
 import 'package:meet_chat/core/dependencies.dart';
 import 'package:meet_chat/core/globals.dart';
 import 'package:meet_chat/firebase_options.dart';

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/material.dart';
 import 'package:meet_chat/core/globals.dart';
@@ -18,13 +19,17 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late User? loggedInUser;
   UserModel? currentUserData;
-  List<UserModel>? users = [];
+  List<UserModel> users = [];
   String _errorMessage = '';
+  bool isLoading = false;
+  DocumentSnapshot? lastDocument;
+  bool hasMore = true;
 
   final IDatabaseService _databaseService = INJECTOR<IDatabaseService>();
+  final ScrollController _scrollController = ScrollController();
 
   @override
-  void initState(){
+  void initState() {
     super.initState();
     getCurrentUser();
     getUsers();
@@ -34,21 +39,21 @@ class _HomePageState extends State<HomePage> {
     try {
       final user = CURRENT_USER;
       final userId = user?.uid;
-      final databaseResponse = await _databaseService.getUser(userId.toString());
+      final databaseResponse =
+          await _databaseService.getUser(userId.toString());
 
-      if(databaseResponse.success == false){
+      if (databaseResponse.success == false) {
         setState(() {
           loggedInUser = user;
           currentUserData = null;
           _errorMessage = "Error retrieving user data, try again.";
         });
+      } else {
+        setState(() {
+          loggedInUser = user;
+          currentUserData = databaseResponse.data;
+        });
       }
-
-      setState(() {
-        loggedInUser = user;
-        currentUserData = databaseResponse.data;
-      });
-
     } catch (err) {
       print(err);
       setState(() {
@@ -58,23 +63,40 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> getUsers() async {
+    if (isLoading || !hasMore) return;
+
+    setState(() {
+      isLoading = true;
+    });
+
     try {
-      final serviceResponse = await _databaseService.getAllUsers();
+      final serviceResponse = await _databaseService.getAllUsers(
+          limit: 1, lastDocument: lastDocument);
 
       if (serviceResponse.success == true) {
+        final fetchedUsers = serviceResponse.data as List<UserModel>;
         setState(() {
-          users = serviceResponse.data;
+          users.addAll(fetchedUsers);
+          if (fetchedUsers.length < 1) {
+            hasMore = false;
+          } else {
+            lastDocument = fetchedUsers.isNotEmpty
+                ? fetchedUsers.last.documentSnapshot
+                : null;
+          }
         });
       } else {
         setState(() {
-          _errorMessage = "Failed to fetch users: ${serviceResponse.message}";
+          _errorMessage = "${serviceResponse.message}";
         });
       }
     } catch (err) {
-      // Handle exceptions
-      print("Error fetching users: $err");
       setState(() {
         _errorMessage = "Error fetching users: $err";
+      });
+    } finally {
+      setState(() {
+        isLoading = false;
       });
     }
   }
@@ -85,35 +107,59 @@ class _HomePageState extends State<HomePage> {
       resizeToAvoidBottomInset: true,
       appBar: AppHeader(title: "Chat - Home"),
       body: SingleChildScrollView(
+        controller: _scrollController,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (currentUserData != null)
               Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: UserProfileButton(user: currentUserData!),
-              ),
-            if (users != null && users!.isNotEmpty)
-              ...users!.map((user) => Container(
-                color: Colors.blueAccent,
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: UserProfileButton(user: user, backgroundColor: Colors.white),                ),
-              )),
-            if (_errorMessage.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  _errorMessage,
-                  style: const TextStyle(color: Colors.red),
+                child: Column(
+                  children: [
+                    UserProfileButton(
+                        user: currentUserData!, isCurrentUser: true, backgroundColor: Colors.white),
+                    const Divider(thickness: 2, color: Colors.blueGrey),
+                  ],
                 ),
               ),
-            Center(
-              child: ElevatedButton(
-                onPressed: getUsers,
-                child: const Text('Get Users'),
+            if (users.isNotEmpty)
+              ...users.map((user) => Container(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: UserProfileButton(
+                          user: user, backgroundColor: Colors.white),
+                    ),
+                  )),
+            if (isLoading)
+              const Center(
+                child: CircularProgressIndicator(),
               ),
-            ),
+            if (!isLoading && hasMore)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Center(
+                  child: ElevatedButton(
+                    onPressed: getUsers,
+                    child: const Text('Load more users'),
+                  ),
+                ),
+              ),
+            if (_errorMessage.isNotEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12.0),
+                margin: const EdgeInsets.only(top: 30),
+                color: Colors.redAccent,
+                child: Text(
+                  _errorMessage,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -121,33 +167,60 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-
 class UserProfileButton extends StatelessWidget {
-  const UserProfileButton({Key? key, required this.user, this.backgroundColor});
+  const UserProfileButton(
+      {Key? key,
+      required this.user,
+      this.backgroundColor,
+      this.isCurrentUser = false})
+      : super(key: key);
 
   final UserModel user;
   final Color? backgroundColor;
+  final bool isCurrentUser;
+
+  Color backgroundImageColor() {
+    return user.UserGender == Gender.Male
+        ? Colors.blueAccent
+        : Colors.pinkAccent;
+  }
 
   @override
   Widget build(BuildContext context) {
     return ElevatedButton(
       onPressed: () {
-        print(user.Username);
+        Navigator.pushNamed(context, '/profile', arguments: user.Id);
       },
       style: ElevatedButton.styleFrom(
         backgroundColor: backgroundColor,
         padding: const EdgeInsets.all(10.0),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          CircleAvatar(
-            backgroundImage: NetworkImage(user.ProfilePictureUrl),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                    blurRadius: 10,
+                    color: backgroundImageColor(),
+                    spreadRadius: 1)
+              ],
+            ),
+            child: CircleAvatar(
+              radius: 30.0,
+              backgroundImage: NetworkImage(user.ProfilePictureUrl),
+            ),
           ),
-          const SizedBox(width: 10),
           Text(
             user.Username,
-            style: const TextStyle(fontSize: 30),
+            textAlign: TextAlign.right,
+            style: const TextStyle(fontSize: 20, color: Colors.black),
           ),
         ],
       ),
