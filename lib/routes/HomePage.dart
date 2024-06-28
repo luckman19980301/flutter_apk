@@ -1,6 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' show DocumentSnapshot;
 import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/material.dart';
+import 'package:meet_chat/components/UserProfileButton.dart';
 import 'package:meet_chat/core/globals.dart';
 import 'package:meet_chat/core/models/UserModel.dart';
 import 'package:meet_chat/core/services/DatabaseService.dart';
@@ -55,7 +56,6 @@ class _HomePageState extends State<HomePage> {
         });
       }
     } catch (err) {
-      print(err);
       setState(() {
         loggedInUser = null;
       });
@@ -123,13 +123,11 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             if (users.isNotEmpty)
-              ...users.map((user) => Container(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: UserProfileButton(
-                          user: user, backgroundColor: Colors.white),
-                    ),
-                  )),
+              ...users.map((user) => Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: UserProfileButton(
+                    user: user, backgroundColor: Colors.white),
+              )),
             if (isLoading)
               const Center(
                 child: CircularProgressIndicator(),
@@ -162,67 +160,6 @@ class _HomePageState extends State<HomePage> {
               ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class UserProfileButton extends StatelessWidget {
-  const UserProfileButton(
-      {Key? key,
-      required this.user,
-      this.backgroundColor,
-      this.isCurrentUser = false})
-      : super(key: key);
-
-  final UserModel user;
-  final Color? backgroundColor;
-  final bool isCurrentUser;
-
-  Color backgroundImageColor() {
-    return user.UserGender == Gender.Male
-        ? Colors.blueAccent
-        : Colors.pinkAccent;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: () {
-        Navigator.pushNamed(context, '/profile', arguments: user.Id);
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: backgroundColor,
-        padding: const EdgeInsets.all(10.0),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                    blurRadius: 10,
-                    color: backgroundImageColor(),
-                    spreadRadius: 1)
-              ],
-            ),
-            child: CircleAvatar(
-              radius: 30.0,
-              backgroundImage: NetworkImage(user.ProfilePictureUrl),
-            ),
-          ),
-          Text(
-            user.Username,
-            textAlign: TextAlign.right,
-            style: const TextStyle(fontSize: 20, color: Colors.black),
-          ),
-        ],
       ),
     );
   }

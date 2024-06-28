@@ -10,10 +10,10 @@ import 'package:meet_chat/routes/UserProfile.dart';
 
 import 'constants/ThemeSchema.dart';
 
-void main() async{
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform
+    options: DefaultFirebaseOptions.currentPlatform,
   );
   setupDependencies();
   runApp(const MyApp());
@@ -33,7 +33,7 @@ class MyApp extends StatelessWidget {
         AuthPage.loginRoute: (context) => const AuthPage(loginMode: true),
         AuthPage.registerRoute: (context) => const AuthPage(loginMode: false),
         RootPage.route: (context) => const RootPage(),
-        UserProfile.route: (context) => const UserProfile(),
+        UserProfile.route: (context) => UserProfile(userId: ModalRoute.of(context)!.settings.arguments as String),
       },
     );
   }
