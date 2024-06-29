@@ -12,6 +12,7 @@ class UserModel {
   String Username;
   String ProfilePictureUrl;
   String Email;
+  String? AboutMe;
   int? Age;
   Gender UserGender;
   int? PhoneNumber;
@@ -32,6 +33,7 @@ class UserModel {
     this.PhoneNumber,
     this.Friends = const [],
     this.documentSnapshot,
+    this.AboutMe,
   });
 
   factory UserModel.fromDocument(DocumentSnapshot doc) {
@@ -45,6 +47,7 @@ class UserModel {
       ProfilePictureUrl: data['profilePictureUrl'],
       Email: data['email'],
       Age: data['age'],
+      AboutMe: data['about_me'],
       UserGender: _genderFromString(data['gender']),
       PhoneNumber: data['phoneNumber'],
       Friends: List<String>.from(data['friends'] ?? []),
@@ -64,6 +67,7 @@ class UserModel {
       'UserGender': _genderToString(UserGender),
       'PhoneNumber': PhoneNumber,
       'Friends': Friends,
+      'AboutMe': AboutMe
     };
   }
 

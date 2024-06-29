@@ -1,7 +1,7 @@
 import 'package:meet_chat/core/dependencies.dart';
 import 'package:meet_chat/core/globals.dart';
 import 'package:meet_chat/firebase_options.dart';
-import 'package:meet_chat/routes/AuthPage.dart';
+import 'package:meet_chat/routes/%5BAuth%5D/AuthPage.dart';
 import 'package:meet_chat/routes/HomePage.dart';
 import 'package:meet_chat/routes/RootPage.dart';
 import 'package:firebase_core/firebase_core.dart';

@@ -1,10 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart' show DocumentSnapshot;
 import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/material.dart';
-import 'package:meet_chat/components/UserProfileButton.dart';
 import 'package:meet_chat/core/globals.dart';
 import 'package:meet_chat/core/models/UserModel.dart';
 import 'package:meet_chat/core/services/DatabaseService.dart';
+import 'package:meet_chat/routes/UserProfile.dart';
 
 import '../components/AppHeader.dart';
 
@@ -17,7 +17,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   late User? loggedInUser;
   UserModel? currentUserData;
   List<UserModel> users = [];
@@ -28,10 +28,12 @@ class _HomePageState extends State<HomePage> {
 
   final IDatabaseService _databaseService = INJECTOR<IDatabaseService>();
   final ScrollController _scrollController = ScrollController();
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     getCurrentUser();
     getUsers();
   }
@@ -40,8 +42,7 @@ class _HomePageState extends State<HomePage> {
     try {
       final user = CURRENT_USER;
       final userId = user?.uid;
-      final databaseResponse =
-          await _databaseService.getUser(userId.toString());
+      final databaseResponse = await _databaseService.getUser(userId.toString());
 
       if (databaseResponse.success == false) {
         setState(() {
@@ -71,13 +72,13 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final serviceResponse = await _databaseService.getAllUsers(
-          limit: 1, lastDocument: lastDocument);
+          limit: 10, lastDocument: lastDocument);
 
       if (serviceResponse.success == true) {
         final fetchedUsers = serviceResponse.data as List<UserModel>;
         setState(() {
           users.addAll(fetchedUsers);
-          if (fetchedUsers.length < 1) {
+          if (fetchedUsers.length < 10) {
             hasMore = false;
           } else {
             lastDocument = fetchedUsers.isNotEmpty
@@ -105,59 +106,167 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      appBar: AppHeader(title: "Chat - Home"),
-      body: SingleChildScrollView(
-        controller: _scrollController,
+      appBar: AppHeader(
+        title: currentUserData?.Username ?? 'Chat - Home',
+        tabController: _tabController,
+        tabs: const [
+          Tab(text: 'Matches'),
+          Tab(text: 'Messages'),
+        ],
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildMatchesTab(),
+                  Center(child: Text('Messages')),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMatchesTab() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          Expanded(
+            child: GridView.builder(
+              controller: _scrollController,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 3 / 4,  // Increased height of the card
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+              ),
+              itemCount: users.length + (hasMore ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == users.length) {
+                  return Center(
+                    child: ElevatedButton(
+                      onPressed: getUsers,
+                      style: Theme.of(context).elevatedButtonTheme.style?.copyWith(
+                        padding: MaterialStateProperty.all(
+                          const EdgeInsets.symmetric(
+                              horizontal: 50,
+                              vertical: 15
+                          ),
+                        ),
+                      ),
+                      child: const Text('Load more users'),
+                    ),
+                  );
+                }
+                final user = users[index];
+                return UserProfileCard(user: user);
+              },
+            ),
+          ),
+          if (isLoading)
+            const Center(
+              child: CircularProgressIndicator(),
+            ),
+          if (_errorMessage.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12.0),
+              margin: const EdgeInsets.only(top: 30),
+              color: Colors.redAccent,
+              child: Text(
+                _errorMessage,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class UserProfileCard extends StatelessWidget {
+  const UserProfileCard({Key? key, required this.user}) : super(key: key);
+
+  final UserModel user;
+
+  Color backgroundImageColor() {
+    return user.UserGender == Gender.Male ? Colors.blueAccent : Colors.pinkAccent;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      elevation: 4,
+      child: InkWell(
+        onTap: () {
+          Navigator.pushNamed(context, UserProfile.route, arguments: user.Id);
+        },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (currentUserData != null)
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Column(
-                  children: [
-                    UserProfileButton(
-                        user: currentUserData!, isCurrentUser: true, backgroundColor: Colors.white),
-                    const Divider(thickness: 2, color: Colors.blueGrey),
-                  ],
-                ),
-              ),
-            if (users.isNotEmpty)
-              ...users.map((user) => Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: UserProfileButton(
-                    user: user, backgroundColor: Colors.white),
-              )),
-            if (isLoading)
-              const Center(
-                child: CircularProgressIndicator(),
-              ),
-            if (!isLoading && hasMore)
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Center(
-                  child: ElevatedButton(
-                    onPressed: getUsers,
-                    child: const Text('Load more users'),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                child: Container(
+                  decoration: BoxDecoration(
+                    image: DecorationImage(
+                      image: NetworkImage(user.ProfilePictureUrl),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          color: Colors.black54,
+                          padding: const EdgeInsets.all(4.0),
+                          child: Text(
+                            user.Username,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            if (_errorMessage.isNotEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12.0),
-                margin: const EdgeInsets.only(top: 30),
-                color: Colors.redAccent,
-                child: Text(
-                  _errorMessage,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  if (user.Age != null)
+                    Text(
+                      '${user.Age} years',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
+                  Icon(
+                    Icons.favorite,
+                    color: user.UserGender == Gender.Male ? Colors.blueAccent : Colors.pinkAccent,
                   ),
-                ),
+                ],
               ),
+            ),
           ],
         ),
       ),
