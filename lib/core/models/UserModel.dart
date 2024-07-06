@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart' show DocumentSnapshot;
+import 'package:cloud_firestore/cloud_firestore.dart' show DocumentSnapshot, Timestamp;
 
 enum Gender {
   Male,
@@ -13,10 +13,11 @@ class UserModel {
   String ProfilePictureUrl;
   String Email;
   String? AboutMe;
-  int? Age;
   Gender UserGender;
   int? PhoneNumber;
   List<String>? Friends;
+  DateTime? DateOfBirth;
+  int? Age;
 
   // Add a DocumentSnapshot field to store the original document snapshot
   final DocumentSnapshot? documentSnapshot;
@@ -25,15 +26,16 @@ class UserModel {
     required this.Id,
     required this.Username,
     required this.ProfilePictureUrl,
-    this.Age,
     required this.UserGender,
+    required this.Email,
     this.FirstName,
     this.LastName,
-    required this.Email,
     this.PhoneNumber,
     this.Friends = const [],
     this.documentSnapshot,
     this.AboutMe,
+    this.DateOfBirth,
+    this.Age,
   });
 
   factory UserModel.fromDocument(DocumentSnapshot doc) {
@@ -46,12 +48,13 @@ class UserModel {
       Username: data['username'],
       ProfilePictureUrl: data['profilePictureUrl'],
       Email: data['email'],
-      Age: data['age'],
-      AboutMe: data['about_me'],
+      AboutMe: data['aboutMe'],
       UserGender: _genderFromString(data['gender']),
       PhoneNumber: data['phoneNumber'],
       Friends: List<String>.from(data['friends'] ?? []),
       documentSnapshot: doc,  // Store the original document snapshot
+      DateOfBirth: (data['dateOfBirth'] != null) ? (data['dateOfBirth'] as Timestamp).toDate() : null,
+      Age: data['age'],
     );
   }
 
@@ -63,11 +66,12 @@ class UserModel {
       'Username': Username,
       'ProfilePictureUrl': ProfilePictureUrl,
       'Email': Email,
-      'Age': Age,
       'UserGender': _genderToString(UserGender),
       'PhoneNumber': PhoneNumber,
       'Friends': Friends,
-      'AboutMe': AboutMe
+      'AboutMe': AboutMe,
+      'DateOfBirth': DateOfBirth != null ? Timestamp.fromDate(DateOfBirth!) : null,
+      'age': Age,
     };
   }
 
@@ -77,5 +81,16 @@ class UserModel {
 
   static Gender _genderFromString(String gender) {
     return gender == 'Male' ? Gender.Male : Gender.Female;
+  }
+
+  void calculateAge() {
+    if (DateOfBirth != null) {
+      DateTime today = DateTime.now();
+      int age = today.year - DateOfBirth!.year;
+      if (today.month < DateOfBirth!.month || (today.month == DateOfBirth!.month && today.day < DateOfBirth!.day)) {
+        age--;
+      }
+      Age = age;
+    }
   }
 }

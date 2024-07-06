@@ -75,12 +75,26 @@ class _UserImagePickerState extends State<UserImagePicker> {
               : null,
         ),
         const SizedBox(height: 10),
-        ElevatedButton.icon(
-          onPressed: () => _showPicker(context),
-          icon: const Icon(Icons.image),
-          label: const Text('Select profile picture'),
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFFF5F6D), Colors.pinkAccent],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+          ),
+          child: ElevatedButton.icon(
+            onPressed: () => _showPicker(context),
+            icon: const Icon(Icons.image),
+            label: const Text('Select profile picture'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), backgroundColor: Colors.transparent, // Use Colors.transparent to see the gradient background
+              shadowColor: Colors.transparent, // Remove the shadow to avoid any conflicts with the gradient
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
         ),
       ],

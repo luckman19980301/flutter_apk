@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:meet_chat/components/AppHeader.dart';
 import 'package:meet_chat/components/AppIcon.dart';
-import 'package:meet_chat/components/Modal.dart';
 import 'package:meet_chat/routes/%5BAuth%5D/AuthPage.dart';
 
 class RootPage extends StatefulWidget {
@@ -15,48 +12,23 @@ class RootPage extends StatefulWidget {
 }
 
 class _RootPageState extends State<RootPage> with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _animationController = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    );
-    _animation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.decelerate,
-    );
-
-    _animationController.forward();
-    _animation.addListener(() {
-      setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppHeader(title: "Chat - Welcome"),
       body: Container(
-
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFFF5F6D), Colors.pinkAccent],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox(
-              height: 100,
-              child: AppIcon(size: _animation.value * 100),
-            ),
+            AppIcon(size: 70),
             const SizedBox(height: 20.0),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 5.0, horizontal: 20.0),
@@ -72,38 +44,40 @@ class _RootPageState extends State<RootPage> with SingleTickerProviderStateMixin
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      foregroundColor: Colors.white,
-                      backgroundColor: Colors.blue,
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.pinkAccent,
                       textStyle: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    child: const Text("Sign in"),
+                    child: const Text(
+                      "Sign into your account",
+                    ),
                   ),
                   const SizedBox(height: 10.0),
-                  ElevatedButton(
+                  TextButton(
                     onPressed: () {
                       Navigator.pushNamed(context, AuthPage.registerRoute);
                     },
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      foregroundColor: Colors.white,
-                      backgroundColor: Colors.blue,
-                      textStyle: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                    child: const Text(
+                      "Create a New Account",
+                      style: TextStyle(
+                        color: Colors.white,
+                        decoration: TextDecoration.underline,
+                        fontSize: 16,
                       ),
                     ),
-                    child: const Text("Create account"),
                   ),
-                  const SizedBox(height: 10.0),
-                  const Modal(
-                    icon: FontAwesomeIcons.circleInfo,
-                    buttonTitle: "About",
+                  const SizedBox(height: 20.0),
+                  const Center(
+                    child: Text(
+                      "Trouble Logging In?",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
                   ),
                 ],
               ),

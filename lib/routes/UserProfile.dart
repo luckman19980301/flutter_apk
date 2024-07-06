@@ -71,7 +71,7 @@ class _UserProfileState extends State<UserProfile> {
                   _buildDivider(),
                   _buildUserInfo(),
                   _buildDivider(),
-                  _buildAboutMe(),
+                  _buildAdditionalInfo(),
                   _buildDivider(),
                   _buildPhotoGallery(),
                 ],
@@ -93,6 +93,21 @@ class _UserProfileState extends State<UserProfile> {
           fit: BoxFit.cover,
         ),
       ),
+      child: Align(
+        alignment: Alignment.bottomLeft,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text(
+            '${user!.Username}, ${user!.Age ?? ''}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              backgroundColor: Colors.black54,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -112,43 +127,49 @@ class _UserProfileState extends State<UserProfile> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${user!.Username}, ${user!.Age ?? ''}',
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
           if (user!.FirstName != null && user!.LastName != null)
-            Text(
-              "Name: ${user!.FirstName} ${user!.LastName}",
-              style: const TextStyle(fontSize: 18),
-            ),
+            _buildUserInfoRow(Icons.person, "Name: ${user!.FirstName} ${user!.LastName}"),
           if (user!.PhoneNumber != null)
-            Text(
-              "Phone: ${user!.PhoneNumber}",
-              style: const TextStyle(fontSize: 18),
-            ),
-          if (user!.AboutMe != null)
-            Text(
-              "About Me: ${user!.AboutMe}",
-              style: const TextStyle(fontSize: 18),
-            ),
+            _buildUserInfoRow(Icons.phone, "Phone: ${user!.PhoneNumber}"),
+          _buildUserInfoRow(Icons.email, "Email: ${user!.Email}"),
+          _buildUserInfoRow(Icons.cake, "Age: ${user!.Age ?? ''}"),
+          if (user!.DateOfBirth != null)
+            _buildUserInfoRow(Icons.calendar_today, "Date of Birth: ${_formatDate(user!.DateOfBirth!)}"),
         ],
       ),
     );
   }
 
-  Widget _buildAboutMe() {
+  Widget _buildUserInfoRow(IconData icon, String info) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.pinkAccent),
+          const SizedBox(width: 10),
+          Text(
+            info,
+            style: const TextStyle(fontSize: 18),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdditionalInfo() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
+        children: [
+          const Text(
+            "About Me",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
           Text(
-            "Additional information",
-            style: TextStyle(fontSize: 18),
+            user!.AboutMe ?? "No additional information",
+            style: const TextStyle(fontSize: 16),
           ),
         ],
       ),
@@ -270,5 +291,9 @@ class _UserProfileState extends State<UserProfile> {
         child: Icon(icon, color: color, size: 30),
       ),
     );
+  }
+
+  String _formatDate(DateTime date) {
+    return "${date.day}.${date.month}.${date.year}";
   }
 }

@@ -1,15 +1,19 @@
-import 'package:flutter/material.dart' show BorderRadius, BuildContext, Center, Colors, ElevatedButton, Icon, IconData, MainAxisAlignment, RoundedRectangleBorder, Row, SizedBox, State, StatefulWidget, VoidCallback, Widget;
+import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:meet_chat/core/models/UserModel.dart';
 
 class GenderSelectionRow extends StatefulWidget {
-  final Gender selectedGender;
-  final Function(Gender) onGenderSelected;
+  final List<Gender> selectedGenders;
+  final Function(List<Gender>) onGendersSelected;
+  final bool allowMultipleSelection;
+  final double size;
 
   const GenderSelectionRow({
     super.key,
-    required this.selectedGender,
-    required this.onGenderSelected,
+    required this.selectedGenders,
+    required this.onGendersSelected,
+    this.allowMultipleSelection = false,
+    this.size = 80.0,
   });
 
   @override
@@ -17,39 +21,58 @@ class GenderSelectionRow extends StatefulWidget {
 }
 
 class _GenderSelectionRowState extends State<GenderSelectionRow> {
-  late Gender _selectedGender;
+  late List<Gender> _selectedGenders;
 
   @override
   void initState() {
     super.initState();
-    _selectedGender = widget.selectedGender;
+    _selectedGenders = widget.selectedGenders;
   }
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         _genderButton(
           gender: Gender.Male,
           icon: FontAwesomeIcons.mars,
-          isSelected: _selectedGender == Gender.Male,
+          isSelected: _selectedGenders.contains(Gender.Male),
+          size: widget.size,
           onPressed: () {
             setState(() {
-              _selectedGender = Gender.Male;
+              if (widget.allowMultipleSelection) {
+                if (_selectedGenders.contains(Gender.Male)) {
+                  _selectedGenders.remove(Gender.Male);
+                } else {
+                  _selectedGenders.add(Gender.Male);
+                }
+              } else {
+                _selectedGenders = [Gender.Male];
+              }
             });
-            widget.onGenderSelected(Gender.Male);
+            widget.onGendersSelected(_selectedGenders);
           },
         ),
+        const SizedBox(width: 10),
         _genderButton(
           gender: Gender.Female,
           icon: FontAwesomeIcons.venus,
-          isSelected: _selectedGender == Gender.Female,
+          isSelected: _selectedGenders.contains(Gender.Female),
+          size: widget.size,
           onPressed: () {
             setState(() {
-              _selectedGender = Gender.Female;
+              if (widget.allowMultipleSelection) {
+                if (_selectedGenders.contains(Gender.Female)) {
+                  _selectedGenders.remove(Gender.Female);
+                } else {
+                  _selectedGenders.add(Gender.Female);
+                }
+              } else {
+                _selectedGenders = [Gender.Female];
+              }
             });
-            widget.onGenderSelected(Gender.Female);
+            widget.onGendersSelected(_selectedGenders);
           },
         ),
       ],
@@ -60,18 +83,30 @@ class _GenderSelectionRowState extends State<GenderSelectionRow> {
     required Gender gender,
     required IconData icon,
     required bool isSelected,
+    required double size,
     required VoidCallback onPressed,
   }) {
-    const selectedColor = Colors.blue; // Color for selected button
-    const defaultColor = Colors.grey; // Color for default button
+    Color buttonColor = isSelected ? Colors.transparent : Colors.grey;
+    LinearGradient? gradient = isSelected
+        ? const LinearGradient(
+      colors: [Color(0xFFFF5F6D), Colors.pinkAccent],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    )
+        : null;
 
-    return SizedBox(
-      width: 80.0,
-      height: 80.0,
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(10.0),
+      ),
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: isSelected ? selectedColor : defaultColor,
+          padding: EdgeInsets.zero,
+          backgroundColor: buttonColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10.0),
           ),
@@ -79,7 +114,7 @@ class _GenderSelectionRowState extends State<GenderSelectionRow> {
         child: Center(
           child: Icon(
             icon,
-            size: 40.0,
+            size: size * 0.5,
             color: Colors.white,
           ),
         ),

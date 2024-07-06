@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:meet_chat/components/ErrorMessageWidget.dart';
 import 'package:meet_chat/core/globals.dart';
 import 'package:meet_chat/core/models/ServiceResponse.dart';
 import 'package:meet_chat/core/services/AuthenticationService.dart';
+import 'package:meet_chat/core/services/DatabaseService.dart';
 import 'package:meet_chat/routes/HomePage.dart';
 
 class LoginForm extends StatefulWidget {
   final IAuthenticationService authenticationService;
-
-  const LoginForm({super.key, required this.authenticationService});
+  final IDatabaseService databaseService;
+  const LoginForm({super.key, required this.authenticationService, required this.databaseService});
 
   @override
   _LoginFormState createState() => _LoginFormState();
@@ -43,8 +45,18 @@ class _LoginFormState extends State<LoginForm> {
 
       ServiceResponse<UserCredential> response =
       await widget.authenticationService.login(email, password);
+
       if (response.success == true) {
-        Navigator.pushNamed(context, HomePage.route);
+        final databaseResponse = await widget.databaseService.getUser(CURRENT_USER!.uid);
+        if (databaseResponse.success == true) {
+          await CURRENT_USER?.updateDisplayName(databaseResponse.data?.Username);
+          await CURRENT_USER?.updatePhotoURL(databaseResponse.data?.ProfilePictureUrl);
+          Navigator.pushNamed(context, HomePage.route);
+        } else {
+          setState(() {
+            _errorMessage = databaseResponse.message ?? "Error loading user data";
+          });
+        }
       } else {
         setState(() {
           _errorMessage = response.message.toString();
@@ -112,35 +124,32 @@ class _LoginFormState extends State<LoginForm> {
             const CircularProgressIndicator(),
             const SizedBox(height: 20),
           ],
-          ElevatedButton(
-            onPressed: onSubmit,
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFFF5F6D), Colors.pinkAccent],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
+              borderRadius: BorderRadius.all(Radius.circular(12)),
             ),
-            child: const Text(
-              'Sign in',
-              style: TextStyle(fontSize: 18),
-            ),
-          ),
-          if (_errorMessage.isNotEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12.0),
-              margin: const EdgeInsets.only(top: 30),
-              color: Colors.redAccent,
-              child: Text(
-                _errorMessage,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+            child: ElevatedButton(
+              onPressed: onSubmit,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
+              child: const Text(
+                'Sign in',
+                style: TextStyle(fontSize: 18),
+              ),
             ),
+          ),
+          ErrorMessageWidget(message: _errorMessage),
         ],
       ),
     );

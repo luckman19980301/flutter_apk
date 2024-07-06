@@ -16,8 +16,11 @@ class AuthenticationService implements IAuthenticationService {
       final user = await FIREBASE_INSTANCE.signInWithEmailAndPassword(email: email, password: password);
       return ServiceResponse<UserCredential>(message: "Login successful", data: user, success: true);
     } on FirebaseAuthException catch (err) {
+      print(err.code);
       String errorMessage = ErrorMessages.getErrorMessage(err.code);
       return ServiceResponse<UserCredential>(message: errorMessage, success: false);
+    } catch (err) {
+      return ServiceResponse<UserCredential>(message: "An unexpected error occurred", success: false);
     }
   }
 
@@ -39,6 +42,9 @@ class AuthenticationService implements IAuthenticationService {
     } on FirebaseAuthException catch (err) {
       String errorMessage = ErrorMessages.getErrorMessage(err.code);
       return ServiceResponse<UserCredential>(message: errorMessage, success: false);
+    } catch (err) {
+      return ServiceResponse<UserCredential>(message: "An unexpected error occurred", success: false);
     }
   }
 }
+

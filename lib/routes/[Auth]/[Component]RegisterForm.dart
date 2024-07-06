@@ -1,7 +1,7 @@
-
 import 'dart:io' show File;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:meet_chat/components/ErrorMessageWidget.dart';
 import 'package:meet_chat/components/forms/UserImagePicker.dart';
 import 'package:meet_chat/components/forms/GenderSelectionInputButton.dart';
 import 'package:meet_chat/core/models/ServiceResponse.dart';
@@ -10,6 +10,7 @@ import 'package:meet_chat/core/services/AuthenticationService.dart';
 import 'package:meet_chat/core/services/DatabaseService.dart';
 import 'package:meet_chat/core/services/StorageService.dart';
 import 'package:meet_chat/routes/HomePage.dart';
+import 'package:intl/intl.dart';
 
 class RegisterForm extends StatefulWidget {
   final IAuthenticationService authenticationService;
@@ -32,12 +33,39 @@ class _RegisterFormState extends State<RegisterForm> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _repeatPasswordController = TextEditingController();
+  final TextEditingController _aboutMeController = TextEditingController();
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   File? _selectedImage;
   Gender _selectedGender = Gender.Male;
   String _errorMessage = '';
   bool isUploading = false;
+  DateTime? _selectedDateOfBirth;
+
+  void _pickDateOfBirth(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(2000),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null && picked != _selectedDateOfBirth) {
+      setState(() {
+        _selectedDateOfBirth = picked;
+      });
+    }
+  }
+
+  bool _isValidAge(DateTime dateOfBirth) {
+    final currentDate = DateTime.now();
+    final age = currentDate.year - dateOfBirth.year;
+    final isBeforeBirthday = (currentDate.month < dateOfBirth.month) ||
+        (currentDate.month == dateOfBirth.month && currentDate.day < dateOfBirth.day);
+
+    return age > 18 || (age == 18 && !isBeforeBirthday);
+  }
 
   void onSubmit() async {
     final formState = _formKey.currentState;
@@ -60,6 +88,18 @@ class _RegisterFormState extends State<RegisterForm> {
       });
       return;
     }
+    if (_selectedDateOfBirth == null) {
+      setState(() {
+        _errorMessage = 'Please select your date of birth.';
+      });
+      return;
+    }
+    if (!_isValidAge(_selectedDateOfBirth!)) {
+      setState(() {
+        _errorMessage = 'You must be at least 18 years old to register.';
+      });
+      return;
+    }
 
     try {
       setState(() {
@@ -68,6 +108,9 @@ class _RegisterFormState extends State<RegisterForm> {
       String email = _emailController.value.text;
       String password = _passwordController.value.text;
       String username = _userNameController.value.text;
+      String aboutMe = _aboutMeController.value.text;
+      String firstName = _firstNameController.value.text;
+      String lastName = _lastNameController.value.text;
 
       ServiceResponse<UserCredential> authResponse =
       await widget.authenticationService.registerAccount(email, password);
@@ -81,7 +124,7 @@ class _RegisterFormState extends State<RegisterForm> {
       }
 
       ServiceResponse<String> storageResponse = await widget.storageService.uploadFile(
-        _selectedImage,
+        _selectedImage!,
         "${userId}_profilePicture",
         "user_images",
       );
@@ -99,6 +142,10 @@ class _RegisterFormState extends State<RegisterForm> {
         ProfilePictureUrl: storageResponse.data.toString(),
         UserGender: _selectedGender,
         Email: email,
+        AboutMe: aboutMe,
+        DateOfBirth: _selectedDateOfBirth,
+        FirstName: firstName,
+        LastName: lastName,
       );
       ServiceResponse<bool> databaseResponse =
       await widget.databaseService.createUser(userId, newUser);
@@ -110,7 +157,6 @@ class _RegisterFormState extends State<RegisterForm> {
         return;
       }
 
-      // Update the user profile in Firebase Authentication
       User? user = authResponse.data?.user;
       await user?.updateDisplayName(username);
       await user?.updatePhotoURL(storageResponse.data.toString());
@@ -135,142 +181,220 @@ class _RegisterFormState extends State<RegisterForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          TextFormField(
-            controller: _userNameController,
-            keyboardType: TextInputType.text,
-            textCapitalization: TextCapitalization.none,
-            decoration: InputDecoration(
-              hintText: 'Username',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+    return SingleChildScrollView(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            TextFormField(
+              controller: _firstNameController,
+              keyboardType: TextInputType.text,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                hintText: 'First Name',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter your first name.';
+                }
+                return null;
+              },
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter a valid username.';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 10),
-          TextFormField(
-            controller: _emailController,
-            keyboardType: TextInputType.emailAddress,
-            textCapitalization: TextCapitalization.none,
-            decoration: InputDecoration(
-              hintText: 'Email',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _lastNameController,
+              keyboardType: TextInputType.text,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                hintText: 'Last Name',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter your last name.';
+                }
+                return null;
+              },
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty || !value.contains("@")) {
-                return 'Please enter a valid email address.';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 10),
-          TextFormField(
-            controller: _passwordController,
-            keyboardType: TextInputType.visiblePassword,
-            textCapitalization: TextCapitalization.none,
-            obscureText: true,
-            obscuringCharacter: "#",
-            decoration: InputDecoration(
-              hintText: 'Password',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _userNameController,
+              keyboardType: TextInputType.text,
+              textCapitalization: TextCapitalization.none,
+              decoration: InputDecoration(
+                hintText: 'Username',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a valid username.';
+                }
+                return null;
+              },
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter a valid password.';
-              } else if (value.length < 6) {
-                return 'Password must be longer than 6 characters.';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 10),
-          TextFormField(
-            controller: _repeatPasswordController,
-            keyboardType: TextInputType.visiblePassword,
-            textCapitalization: TextCapitalization.none,
-            obscureText: true,
-            obscuringCharacter: "#",
-            decoration: InputDecoration(
-              hintText: 'Repeat Password',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              textCapitalization: TextCapitalization.none,
+              decoration: InputDecoration(
+                hintText: 'Email',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
+              validator: (value) {
+                if (value == null || value.isEmpty || !value.contains("@")) {
+                  return 'Please enter a valid email address.';
+                }
+                return null;
+              },
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter a valid password.';
-              } else if (value.length < 6) {
-                return 'Password must be longer than 6 characters.';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 20),
-          GenderSelectionRow(
-            selectedGender: _selectedGender,
-            onGenderSelected: (Gender gender) {
-              setState(() {
-                _selectedGender = gender;
-              });
-            },
-          ),
-          const SizedBox(height: 20),
-          UserImagePicker(
-            onPickImage: (pickedImage) {
-              setState(() {
-                _selectedImage = pickedImage;
-              });
-            },
-          ),
-          const SizedBox(height: 20),
-          if (isUploading) ...[
-            const CircularProgressIndicator(),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _passwordController,
+              keyboardType: TextInputType.visiblePassword,
+              textCapitalization: TextCapitalization.none,
+              obscureText: true,
+              obscuringCharacter: "#",
+              decoration: InputDecoration(
+                hintText: 'Password',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a valid password.';
+                } else if (value.length < 6) {
+                  return 'Password must be longer than 6 characters.';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _repeatPasswordController,
+              keyboardType: TextInputType.visiblePassword,
+              textCapitalization: TextCapitalization.none,
+              obscureText: true,
+              obscuringCharacter: "#",
+              decoration: InputDecoration(
+                hintText: 'Repeat Password',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a valid password.';
+                } else if (value.length < 6) {
+                  return 'Password must be longer than 6 characters.';
+                }
+                return null;
+              },
+            ),
             const SizedBox(height: 20),
-          ],
-          ElevatedButton(
-            onPressed: onSubmit,
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+            TextFormField(
+              controller: _aboutMeController,
+              keyboardType: TextInputType.text,
+              textCapitalization: TextCapitalization.sentences,
+              maxLines: 4,
+              decoration: InputDecoration(
+                hintText: 'About Me',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter some information about yourself.';
+                }
+                return null;
+              },
             ),
-            child: const Text(
-              'Create account',
-              style: TextStyle(fontSize: 18),
-            ),
-          ),
-          if (_errorMessage.isNotEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12.0),
-              margin: const EdgeInsets.only(top: 30),
-              color: Colors.redAccent,
-              child: Text(
-                _errorMessage,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: () => _pickDateOfBirth(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 10),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _selectedDateOfBirth == null
+                          ? 'Select Date of Birth'
+                          : DateFormat('dd.MM.yyyy').format(_selectedDateOfBirth!),
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const Icon(Icons.calendar_today),
+                  ],
                 ),
               ),
             ),
-        ],
+            const SizedBox(height: 20),
+            GenderSelectionRow(
+              selectedGenders: [_selectedGender],
+              onGendersSelected: (selectedGenders) {
+                setState(() {
+                  _selectedGender = selectedGenders.first;
+                });
+              },
+              allowMultipleSelection: false, // Single selection for registration
+            ),
+            const SizedBox(height: 20),
+            UserImagePicker(
+              onPickImage: (pickedImage) {
+                setState(() {
+                  _selectedImage = pickedImage;
+                });
+              },
+            ),
+            const SizedBox(height: 20),
+            if (isUploading) ...[
+              const CircularProgressIndicator(),
+              const SizedBox(height: 20),
+            ],
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFFFF5F6D), Colors.pinkAccent],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.all(Radius.circular(12)),
+              ),
+              child: ElevatedButton(
+                onPressed: onSubmit,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Create account',
+                  style: TextStyle(fontSize: 18),
+                ),
+              ),
+            ),
+            ErrorMessageWidget(message: _errorMessage),
+          ],
+        ),
       ),
     );
   }

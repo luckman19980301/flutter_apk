@@ -1,11 +1,18 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart' show BuildContext, Colors, Column, EdgeInsets, Icon, MainAxisAlignment, MainAxisSize, Padding, StatelessWidget, Widget;
+import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class AppIcon extends StatelessWidget {
-  const AppIcon({super.key, required this.size});
+  const AppIcon({
+    super.key,
+    required this.size,
+    this.title = 'Timber',
+    this.color = Colors.white,
+  });
 
   final double size;
+  final String title;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -13,10 +20,25 @@ class AppIcon extends StatelessWidget {
       tag: 'appLogo',
       child: Padding(
         padding: const EdgeInsets.all(10.0),
-        child: Icon(
-          FontAwesomeIcons.peopleGroup,
-          size: size,
-          color: Colors.grey[600],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              FontAwesomeIcons.tree,
+              size: size,
+              color: color,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: size * 0.4,
+                color: color,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
       ),
     );

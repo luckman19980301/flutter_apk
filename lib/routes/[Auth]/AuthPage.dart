@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:meet_chat/components/AppHeader.dart';
 import 'package:meet_chat/components/AppIcon.dart';
 import 'package:meet_chat/core/globals.dart';
 import 'package:meet_chat/core/services/AuthenticationService.dart';
@@ -19,38 +18,29 @@ class AuthPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final IAuthenticationService authenticationService =
-    INJECTOR<IAuthenticationService>();
+        INJECTOR<IAuthenticationService>();
     final IStorageService storageService = INJECTOR<IStorageService>();
     final IDatabaseService databaseService = INJECTOR<IDatabaseService>();
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      appBar: AppHeader(
-        title: loginMode ? "Chat - Sign in" : "Chat - Register",
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const AppIcon(size: 50.0),
-                const SizedBox(width: 20),
-                Text(
-                  loginMode ? "Sign into your account" : "Create an account",
-                  style: const TextStyle(
-                    fontSize: 24.0,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
+            AppIcon(
+              size: 50.0,
+              color: Colors.pinkAccent,
+              title: loginMode ? "Timber - Sign in" : "Timber - Register",
             ),
             const SizedBox(height: 20),
             if (loginMode)
-              LoginForm(authenticationService: authenticationService)
+              LoginForm(
+                authenticationService: authenticationService,
+                databaseService: databaseService,
+              )
             else
               RegisterForm(
                 authenticationService: authenticationService,

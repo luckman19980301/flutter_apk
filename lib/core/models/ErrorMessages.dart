@@ -8,6 +8,7 @@ class ErrorMessages{
     "user-disabled": "The user account has been disabled by an administrator.",
     "user-not-found": "There is no account corresponding to the given email address.",
     "wrong-password": "The password is invalid.",
+    "invalid-credential": "Invalid email or password",
   };
 
   static String getErrorMessage(String code) {

@@ -8,12 +8,20 @@ abstract class IDatabaseService {
   Future<ServiceResponse<UserModel>> getUser(String id);
   Future<ServiceResponse<List<UserModel>>> getAllUsers({int limit, DocumentSnapshot? lastDocument});
   Future<ServiceResponse<List<UserModel>>> getFriends();
+  Future<ServiceResponse<List<UserModel>>> searchUsers({
+    String? username,
+    List<Gender>? genders,
+    int? minAge,
+    int? maxAge,
+  });
 }
 
 class DatabaseService implements IDatabaseService {
   @override
   Future<ServiceResponse<bool>> createUser(String id, UserModel user) async {
     try {
+      user.calculateAge(); // Calculate the age before saving
+
       await FIREBASE_FIRESTORE.collection("users").doc(id).set({
         "username": user.Username,
         "firstName": user.FirstName,
@@ -24,6 +32,8 @@ class DatabaseService implements IDatabaseService {
         "age": user.Age,
         "phoneNumber": user.PhoneNumber,
         "friends": user.Friends,
+        "aboutMe": user.AboutMe,
+        "dateOfBirth": user.DateOfBirth != null ? Timestamp.fromDate(user.DateOfBirth!) : null,
       });
 
       return ServiceResponse<bool>(data: true, success: true);
@@ -36,8 +46,7 @@ class DatabaseService implements IDatabaseService {
   @override
   Future<ServiceResponse<UserModel>> getUser(String id) async {
     try {
-      final docSnapshot =
-      await FIREBASE_FIRESTORE.collection("users").doc(id).get();
+      final docSnapshot = await FIREBASE_FIRESTORE.collection("users").doc(id).get();
 
       if (docSnapshot.exists) {
         final user = UserModel.fromDocument(docSnapshot);
@@ -52,11 +61,11 @@ class DatabaseService implements IDatabaseService {
     }
   }
 
-
   @override
   Future<ServiceResponse<List<UserModel>>> getAllUsers({int limit = 10, DocumentSnapshot? lastDocument}) async {
     try {
-      Query query = FIREBASE_FIRESTORE.collection("users").limit(limit);
+      Query query = FIREBASE_FIRESTORE.collection("users")
+          .where(FieldPath.documentId, isNotEqualTo: CURRENT_USER?.uid).limit(limit);
 
       if (lastDocument != null) {
         query = query.startAfterDocument(lastDocument);
@@ -94,6 +103,61 @@ class DatabaseService implements IDatabaseService {
   Future<ServiceResponse<List<UserModel>>> getFriends() {
     // TODO: implement getFriends
     throw UnimplementedError();
+  }
+
+  @override
+  Future<ServiceResponse<List<UserModel>>> searchUsers({
+    String? username,
+    List<Gender>? genders,
+    int? minAge,
+    int? maxAge,
+  }) async {
+    try {
+      Query query = FIREBASE_FIRESTORE.collection("users");
+
+      if (username != null && username.isNotEmpty) {
+        query = query.where('username', isEqualTo: username);
+      }
+
+      if (genders != null && genders.isNotEmpty) {
+        List<String> genderStrings = genders.map((gender) => _genderToString(gender)).toList();
+        query = query.where('gender', whereIn: genderStrings);
+      }
+
+      if (minAge != null) {
+        query = query.where('age', isGreaterThanOrEqualTo: minAge);
+      }
+
+      if (maxAge != null) {
+        query = query.where('age', isLessThanOrEqualTo: maxAge);
+      }
+
+      final querySnapshot = await query.get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        List<UserModel> users = [];
+
+        for (var doc in querySnapshot.docs) {
+          UserModel user = UserModel.fromDocument(doc);
+          users.add(user);
+        }
+
+        return ServiceResponse<List<UserModel>>(
+          data: users,
+          success: true,
+        );
+      } else {
+        return ServiceResponse<List<UserModel>>(
+          message: "No users found",
+          success: false,
+        );
+      }
+    } catch (err) {
+      return ServiceResponse<List<UserModel>>(
+        message: err.toString(),
+        success: false,
+      );
+    }
   }
 
   String _genderToString(Gender gender) {

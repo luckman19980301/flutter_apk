@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/material.dart';
 import 'package:meet_chat/core/globals.dart';
 import 'package:meet_chat/routes/%5BAuth%5D/AuthPage.dart';
+import 'package:meet_chat/routes/SearchPage.dart'; // Import the SearchPage
 
 class AppHeader extends StatefulWidget implements PreferredSizeWidget {
   final String title;
@@ -68,6 +69,16 @@ class _AppHeaderState extends State<AppHeader> {
       )
           : null,
       actions: <Widget>[
+        if (user != null)
+          IconButton(
+            icon: const Icon(Icons.search, color: Colors.white),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SearchPage()),
+              );
+            },
+          ),
         IconButton(
           icon: const Icon(Icons.shopping_bag, color: Colors.white),
           onPressed: () {
