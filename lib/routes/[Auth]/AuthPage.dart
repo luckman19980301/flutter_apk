@@ -18,7 +18,7 @@ class AuthPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final IAuthenticationService authenticationService =
-        INJECTOR<IAuthenticationService>();
+    INJECTOR<IAuthenticationService>();
     final IStorageService storageService = INJECTOR<IStorageService>();
     final IDatabaseService databaseService = INJECTOR<IDatabaseService>();
 

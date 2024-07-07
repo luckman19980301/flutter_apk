@@ -125,8 +125,8 @@ class _RegisterFormState extends State<RegisterForm> {
 
       ServiceResponse<String> storageResponse = await widget.storageService.uploadFile(
         _selectedImage!,
-        "${userId}_profilePicture",
-        "user_images",
+        userId,
+        "_profile_picture",
       );
       if (storageResponse.success == false) {
         setState(() {
@@ -392,7 +392,7 @@ class _RegisterFormState extends State<RegisterForm> {
                 ),
               ),
             ),
-            ErrorMessageWidget(message: _errorMessage),
+            ErrorMessageWidget(message: _errorMessage, type: MessageType.error),
           ],
         ),
       ),

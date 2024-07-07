@@ -4,6 +4,7 @@ import 'package:meet_chat/components/AppHeader.dart';
 import 'package:meet_chat/core/globals.dart';
 import 'package:meet_chat/core/models/UserModel.dart';
 import 'package:meet_chat/core/services/DatabaseService.dart';
+import '../components/BottomAppBarComponent.dart';
 
 class UserProfile extends StatefulWidget {
   static const String route = "profile";
@@ -57,28 +58,55 @@ class _UserProfileState extends State<UserProfile> {
       appBar: AppHeader(
         title: "${user?.Username}'s Profile",
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : errorMessage.isNotEmpty
-          ? Center(child: Text(errorMessage))
-          : Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  _buildHeader(),
-                  _buildDivider(),
-                  _buildUserInfo(),
-                  _buildDivider(),
-                  _buildAdditionalInfo(),
-                  _buildDivider(),
-                  _buildPhotoGallery(),
-                ],
+      body: Container(
+        color: const Color(0xFFF0F0F0),
+        child: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : errorMessage.isNotEmpty
+            ? Center(child: Text(errorMessage))
+            : Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    _buildHeader(),
+                    _buildCard(_buildUserInfo(), "User Info"),
+                    _buildCard(_buildAdditionalInfo(), "About Me"),
+                    _buildCard(_buildPhotoGallery(), "Photos"),
+                  ],
+                ),
               ),
             ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: BottomAppBarComponent(
+        buttons: [
+          buildIconButton(
+            icon: Icons.home,
+            startColor: const Color.fromRGBO(43, 217, 254, 1.0),
+            endColor: Colors.lightBlueAccent,
+            onPressed: () {
+              Navigator.pop(context);
+            },
           ),
-          _buildFooter(),
+          buildIconButton(
+            icon: Icons.person_add,
+            startColor: const Color(0xFFFF5F6D),
+            endColor: Colors.pinkAccent,
+            onPressed: () {
+              // Add friend request logic here
+            },
+          ),
+          buildIconButton(
+            icon: Icons.message,
+            startColor: Colors.red,
+            endColor: Colors.deepOrange,
+            onPressed: () {
+              // Redirect to messages page
+            },
+          ),
         ],
       ),
     );
@@ -111,45 +139,63 @@ class _UserProfileState extends State<UserProfile> {
     );
   }
 
-  Widget _buildDivider() {
-    return const Divider(
-      thickness: 1,
-      color: Colors.pinkAccent,
-      height: 40,
-      indent: 20,
-      endIndent: 20,
+  Widget _buildCard(Widget content, String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+      child: Card(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
+        elevation: 5,
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.pinkAccent,
+                ),
+              ),
+              const SizedBox(height: 8),
+              content,
+            ],
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildUserInfo() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (user!.FirstName != null && user!.LastName != null)
-            _buildUserInfoRow(Icons.person, "Name: ${user!.FirstName} ${user!.LastName}"),
-          if (user!.PhoneNumber != null)
-            _buildUserInfoRow(Icons.phone, "Phone: ${user!.PhoneNumber}"),
-          _buildUserInfoRow(Icons.email, "Email: ${user!.Email}"),
-          _buildUserInfoRow(Icons.cake, "Age: ${user!.Age ?? ''}"),
-          if (user!.DateOfBirth != null)
-            _buildUserInfoRow(Icons.calendar_today, "Date of Birth: ${_formatDate(user!.DateOfBirth!)}"),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (user!.FirstName != null && user!.LastName != null)
+          _buildUserInfoRow(Icons.person, "Name: ${user!.FirstName} ${user!.LastName}"),
+        if (user!.PhoneNumber != null)
+          _buildUserInfoRow(Icons.phone, "Phone: ${user!.PhoneNumber}"),
+        _buildUserInfoRow(Icons.email, "Email: ${user!.Email}"),
+        _buildUserInfoRow(Icons.cake, "Age: ${user!.Age ?? ''}"),
+        if (user!.DateOfBirth != null)
+          _buildUserInfoRow(Icons.calendar_today, "Date of Birth: ${_formatDate(user!.DateOfBirth!)}"),
+      ],
     );
   }
 
   Widget _buildUserInfoRow(IconData icon, String info) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
       child: Row(
         children: [
           Icon(icon, color: Colors.pinkAccent),
           const SizedBox(width: 10),
-          Text(
-            info,
-            style: const TextStyle(fontSize: 18),
+          Expanded(
+            child: Text(
+              info,
+              style: const TextStyle(fontSize: 18),
+            ),
           ),
         ],
       ),
@@ -157,21 +203,11 @@ class _UserProfileState extends State<UserProfile> {
   }
 
   Widget _buildAdditionalInfo() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "About Me",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            user!.AboutMe ?? "No additional information",
-            style: const TextStyle(fontSize: 16),
-          ),
-        ],
+    return SizedBox(
+      width: double.infinity,
+      child: Text(
+        user!.AboutMe ?? "No additional information",
+        style: const TextStyle(fontSize: 16),
       ),
     );
   }
@@ -179,45 +215,31 @@ class _UserProfileState extends State<UserProfile> {
   Widget _buildPhotoGallery() {
     final List<String> photos = [
       user!.ProfilePictureUrl,
-      // Add more photo URLs here
     ];
 
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Photos",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-            ),
-            itemCount: photos.length,
-            itemBuilder: (context, index) {
-              return GestureDetector(
-                onTap: () {
-                  _showPhotoDialog(photos[index]);
-                },
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    photos[index],
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
       ),
+      itemCount: photos.length,
+      itemBuilder: (context, index) {
+        return GestureDetector(
+          onTap: () {
+            _showPhotoDialog(photos[index]);
+          },
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              photos[index],
+              fit: BoxFit.cover,
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -226,70 +248,28 @@ class _UserProfileState extends State<UserProfile> {
       context: context,
       builder: (context) {
         return Dialog(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(0),
+          child: Stack(
             children: [
-              Image.network(photoUrl),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text("Close"),
+              Positioned.fill(
+                child: Image.network(
+                  photoUrl,
+                  fit: BoxFit.contain,
+                ),
+              ),
+              Positioned(
+                top: 20,
+                right: 20,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
               ),
             ],
           ),
         );
       },
-    );
-  }
-
-  Widget _buildFooter() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildFooterButton(
-            icon: Icons.close,
-            color: Colors.redAccent,
-            onPressed: () {
-              Navigator.pop(context);
-            },
-          ),
-          _buildFooterButton(
-            icon: Icons.person_add,
-            color: Colors.blueAccent,
-            onPressed: () {
-              // Add friend request logic here
-            },
-          ),
-          _buildFooterButton(
-            icon: Icons.message,
-            color: Colors.greenAccent,
-            onPressed: () {
-              // Redirect to messages page
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFooterButton({required IconData icon, required Color color, required VoidCallback onPressed}) {
-    return Material(
-      elevation: 5,
-      shadowColor: Colors.black26,
-      shape: const CircleBorder(),
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          shape: const CircleBorder(),
-          padding: const EdgeInsets.all(15),
-          elevation: 5,
-          shadowColor: Colors.black26,
-        ),
-        child: Icon(icon, color: color, size: 30),
-      ),
     );
   }
 

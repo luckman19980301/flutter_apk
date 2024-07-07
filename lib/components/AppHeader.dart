@@ -27,13 +27,19 @@ class _AppHeaderState extends State<AppHeader> {
   late User? user = FIREBASE_INSTANCE.currentUser;
 
   void _logout(BuildContext context) async {
+    print("signed as: ${FIREBASE_INSTANCE.currentUser?.displayName}");
     await FIREBASE_INSTANCE.signOut();
-    if (FIREBASE_INSTANCE.currentUser == null) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const AuthPage(loginMode: true)),
-      );
-    }
+
+    setState(() {
+      user = null;
+    });
+    print("LOGGED: ${FIREBASE_INSTANCE.currentUser?.displayName}");
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => const AuthPage(loginMode: true)),
+    );
   }
+
 
   @override
   Widget build(BuildContext context) {

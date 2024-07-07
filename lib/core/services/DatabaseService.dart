@@ -8,12 +8,7 @@ abstract class IDatabaseService {
   Future<ServiceResponse<UserModel>> getUser(String id);
   Future<ServiceResponse<List<UserModel>>> getAllUsers({int limit, DocumentSnapshot? lastDocument});
   Future<ServiceResponse<List<UserModel>>> getFriends();
-  Future<ServiceResponse<List<UserModel>>> searchUsers({
-    String? username,
-    List<Gender>? genders,
-    int? minAge,
-    int? maxAge,
-  });
+  Future<ServiceResponse<List<UserModel>>> searchUsers({String? username, List<Gender>? genders, int? minAge, int? maxAge});
 }
 
 class DatabaseService implements IDatabaseService {
@@ -65,7 +60,7 @@ class DatabaseService implements IDatabaseService {
   Future<ServiceResponse<List<UserModel>>> getAllUsers({int limit = 10, DocumentSnapshot? lastDocument}) async {
     try {
       Query query = FIREBASE_FIRESTORE.collection("users")
-          .where(FieldPath.documentId, isNotEqualTo: CURRENT_USER?.uid).limit(limit);
+          .where(FieldPath.documentId, isNotEqualTo: FIREBASE_INSTANCE.currentUser?.uid).limit(limit);
 
       if (lastDocument != null) {
         query = query.startAfterDocument(lastDocument);
@@ -106,22 +101,17 @@ class DatabaseService implements IDatabaseService {
   }
 
   @override
-  Future<ServiceResponse<List<UserModel>>> searchUsers({
-    String? username,
-    List<Gender>? genders,
-    int? minAge,
-    int? maxAge,
-  }) async {
+  Future<ServiceResponse<List<UserModel>>> searchUsers({String? username, List<Gender>? genders, int? minAge, int? maxAge}) async {
     try {
       Query query = FIREBASE_FIRESTORE.collection("users");
 
       if (username != null && username.isNotEmpty) {
-        query = query.where('username', isEqualTo: username);
+        query = query.where('username', isGreaterThanOrEqualTo: username)
+            .where('username', isLessThanOrEqualTo: username + '\uf8ff');
       }
 
       if (genders != null && genders.isNotEmpty) {
-        List<String> genderStrings = genders.map((gender) => _genderToString(gender)).toList();
-        query = query.where('gender', whereIn: genderStrings);
+        query = query.where('gender', whereIn: genders.map((g) => _genderToString(g)).toList());
       }
 
       if (minAge != null) {

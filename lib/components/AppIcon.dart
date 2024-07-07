@@ -8,11 +8,13 @@ class AppIcon extends StatelessWidget {
     required this.size,
     this.title = 'Timber',
     this.color = Colors.white,
+    this.horizontal = false,
   });
 
   final double size;
   final String title;
   final Color color;
+  final bool horizontal;
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +22,28 @@ class AppIcon extends StatelessWidget {
       tag: 'appLogo',
       child: Padding(
         padding: const EdgeInsets.all(10.0),
-        child: Column(
+        child: horizontal
+            ? Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              FontAwesomeIcons.tree,
+              size: size,
+              color: color,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: size * 0.4,
+                color: color,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        )
+            : Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
