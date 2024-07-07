@@ -50,16 +50,19 @@ class _SwipePageState extends State<SwipePage> {
         setState(() {
           _users.clear();
           _users.addAll(response.data!);
+          _currentIndex = 0;
           _isLoading = false;
         });
       } else {
         setState(() {
           _hasError = true;
+          _isLoading = false;
         });
       }
     } catch (error) {
       setState(() {
         _hasError = true;
+        _isLoading = false;
       });
     }
   }

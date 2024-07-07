@@ -11,7 +11,6 @@ import 'package:meet_chat/routes/SwipePage.dart';
 import 'package:meet_chat/routes/UserProfile.dart';
 import '../components/AppHeader.dart';
 import '../components/BottomAppBarComponent.dart';
-
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -21,8 +20,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage>
-    with SingleTickerProviderStateMixin {
+class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   late User? loggedInUser;
   UserModel? currentUserData;
   List<UserModel> users = [];
@@ -41,6 +39,13 @@ class _HomePageState extends State<HomePage>
     _tabController = TabController(length: 2, vsync: this);
     getCurrentUser();
     getUsers();
+
+    // Add listener to ScrollController
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent) {
+        getUsers();
+      }
+    });
   }
 
   Future<void> getCurrentUser() async {
@@ -77,7 +82,9 @@ class _HomePageState extends State<HomePage>
 
     try {
       final serviceResponse = await _databaseService.getAllUsers(
-          limit: 10, lastDocument: lastDocument);
+        limit: 10, // Increase the limit
+        lastDocument: lastDocument,
+      );
 
       if (serviceResponse.success == true) {
         final fetchedUsers = serviceResponse.data as List<UserModel>;
