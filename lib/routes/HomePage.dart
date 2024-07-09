@@ -11,6 +11,7 @@ import 'package:meet_chat/routes/SwipePage.dart';
 import 'package:meet_chat/routes/UserProfile.dart';
 import '../components/AppHeader.dart';
 import '../components/BottomAppBarComponent.dart';
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -32,6 +33,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   final IDatabaseService _databaseService = INJECTOR<IDatabaseService>();
   final ScrollController _scrollController = ScrollController();
   late TabController _tabController;
+
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  OverlayEntry? _currentOverlayEntry;
 
   @override
   void initState() {
@@ -58,7 +62,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         setState(() {
           loggedInUser = user;
           currentUserData = null;
-          _errorMessage = "Error retrieving user data, try again.";
+          _showErrorMessage("Error retrieving user data, try again.");
         });
       } else {
         setState(() {
@@ -100,12 +104,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         });
       } else {
         setState(() {
-          _errorMessage = "${serviceResponse.message}";
+          _showErrorMessage("${serviceResponse.message}");
         });
       }
     } catch (err) {
       setState(() {
-        _errorMessage = "Error fetching users: $err";
+        _showErrorMessage("Error fetching users: $err");
       });
     } finally {
       setState(() {
@@ -114,9 +118,43 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
+  void _showErrorMessage(String message) {
+    if (_currentOverlayEntry != null) {
+      _currentOverlayEntry!.remove();
+    }
+
+    final overlayState = Overlay.of(context);
+    final overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: 120,
+        left: MediaQuery.of(context).size.width * 0.1,
+        right: MediaQuery.of(context).size.width * 0.1,
+        child: Material(
+          color: Colors.transparent,
+          child: ErrorMessageWidget(
+            message: message,
+            type: MessageType.warning,
+            canClose: true,
+          ),
+        ),
+      ),
+    );
+
+    _currentOverlayEntry = overlayEntry;
+    overlayState.insert(overlayEntry);
+
+    Future.delayed(const Duration(seconds: 3), () {
+      if (_currentOverlayEntry == overlayEntry) {
+        _currentOverlayEntry?.remove();
+        _currentOverlayEntry = null;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       resizeToAvoidBottomInset: true,
       appBar: AppHeader(
         title: currentUserData?.Username ?? 'Chat - Home',
@@ -201,14 +239,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           if (isLoading)
             const Center(
               child: CircularProgressIndicator(),
-            ),
-          if (_errorMessage.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10.0),
-              child: ErrorMessageWidget(
-                message: _errorMessage,
-                type: MessageType.warning,
-              ),
             ),
           if (!isLoading) _buildLoadMoreButton(),
         ],
