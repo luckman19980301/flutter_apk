@@ -6,7 +6,7 @@ enum Gender {
 }
 
 class UserModel {
-  String Id;
+  String? Id;
   String? FirstName;
   String? LastName;
   String Username;
@@ -14,16 +14,14 @@ class UserModel {
   String Email;
   String? AboutMe;
   Gender UserGender;
-  int? PhoneNumber;
+  String? PhoneNumber;
   List<String>? Friends;
   DateTime? DateOfBirth;
-  int? Age;
 
-  // Add a DocumentSnapshot field to store the original document snapshot
   final DocumentSnapshot? documentSnapshot;
 
   UserModel({
-    required this.Id,
+    this.Id,
     required this.Username,
     required this.ProfilePictureUrl,
     required this.UserGender,
@@ -35,7 +33,6 @@ class UserModel {
     this.documentSnapshot,
     this.AboutMe,
     this.DateOfBirth,
-    this.Age,
   });
 
   factory UserModel.fromDocument(DocumentSnapshot doc) {
@@ -54,7 +51,6 @@ class UserModel {
       Friends: List<String>.from(data['friends'] ?? []),
       documentSnapshot: doc,  // Store the original document snapshot
       DateOfBirth: (data['dateOfBirth'] != null) ? (data['dateOfBirth'] as Timestamp).toDate() : null,
-      Age: data['age'],
     );
   }
 
@@ -71,7 +67,6 @@ class UserModel {
       'Friends': Friends,
       'AboutMe': AboutMe,
       'DateOfBirth': DateOfBirth != null ? Timestamp.fromDate(DateOfBirth!) : null,
-      'age': Age,
     };
   }
 
@@ -83,14 +78,13 @@ class UserModel {
     return gender == 'Male' ? Gender.Male : Gender.Female;
   }
 
-  void calculateAge() {
-    if (DateOfBirth != null) {
-      DateTime today = DateTime.now();
-      int age = today.year - DateOfBirth!.year;
-      if (today.month < DateOfBirth!.month || (today.month == DateOfBirth!.month && today.day < DateOfBirth!.day)) {
-        age--;
-      }
-      Age = age;
+  int? calculateAge() {
+    if (this.DateOfBirth == null) return null;
+    final now = DateTime.now();
+    int age = now.year - this.DateOfBirth!.year;
+    if (now.month < this.DateOfBirth!.month || (now.month == this.DateOfBirth!.month && now.day < this.DateOfBirth!.day)) {
+      age--;
     }
+    return age;
   }
 }

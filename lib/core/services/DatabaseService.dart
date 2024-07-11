@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' show DocumentSnapshot, FieldPath, Query, Timestamp;
 import 'package:meet_chat/core/globals.dart';
 import 'package:meet_chat/core/models/ServiceResponse.dart';
 import 'package:meet_chat/core/models/UserModel.dart';
@@ -9,13 +9,15 @@ abstract class IDatabaseService {
   Future<ServiceResponse<List<UserModel>>> getAllUsers({int limit, DocumentSnapshot? lastDocument});
   Future<ServiceResponse<List<UserModel>>> getFriends();
   Future<ServiceResponse<List<UserModel>>> searchUsers({String? username, List<Gender>? genders, int? minAge, int? maxAge});
+  Future<ServiceResponse<bool>> updateUserData(String id, UserModel user);
+  Future<ServiceResponse<bool>> updateProfilePicture(String id, String profilePictureUrl);
 }
 
 class DatabaseService implements IDatabaseService {
   @override
   Future<ServiceResponse<bool>> createUser(String id, UserModel user) async {
     try {
-      user.calculateAge(); // Calculate the age before saving
+      user.calculateAge();
 
       await FIREBASE_FIRESTORE.collection("users").doc(id).set({
         "username": user.Username,
@@ -24,7 +26,6 @@ class DatabaseService implements IDatabaseService {
         "email": user.Email,
         "profilePictureUrl": user.ProfilePictureUrl,
         "gender": _genderToString(user.UserGender),
-        "age": user.Age,
         "phoneNumber": user.PhoneNumber,
         "friends": user.Friends,
         "aboutMe": user.AboutMe,
@@ -107,7 +108,7 @@ class DatabaseService implements IDatabaseService {
 
       if (username != null && username.isNotEmpty) {
         query = query.where('username', isGreaterThanOrEqualTo: username)
-            .where('username', isLessThanOrEqualTo: username + '\uf8ff');
+            .where('username', isLessThanOrEqualTo: '$username\uf8ff');
       }
 
       if (genders != null && genders.isNotEmpty) {
@@ -147,6 +148,43 @@ class DatabaseService implements IDatabaseService {
         message: err.toString(),
         success: false,
       );
+    }
+  }
+
+  @override
+  Future<ServiceResponse<bool>> updateUserData(String id, UserModel user) async {
+    try {
+      await FIREBASE_FIRESTORE.collection("users").doc(id).update({
+        "username": user.Username,
+        "firstName": user.FirstName,
+        "lastName": user.LastName,
+        "email": user.Email,
+        "profilePictureUrl": user.ProfilePictureUrl,
+        "gender": _genderToString(user.UserGender),
+        "phoneNumber": user.PhoneNumber,
+        "friends": user.Friends,
+        "aboutMe": user.AboutMe,
+        "dateOfBirth": user.DateOfBirth != null ? Timestamp.fromDate(user.DateOfBirth!) : null,
+      });
+
+      return ServiceResponse<bool>(data: true, success: true);
+    } on Exception catch (err) {
+      return ServiceResponse<bool>(
+          data: false, message: err.toString(), success: false);
+    }
+  }
+
+  @override
+  Future<ServiceResponse<bool>> updateProfilePicture(String id, String profilePictureUrl) async {
+    try {
+      await FIREBASE_FIRESTORE.collection("users").doc(id).update({
+        "profilePictureUrl": profilePictureUrl,
+      });
+
+      return ServiceResponse<bool>(data: true, success: true);
+    } on Exception catch (err) {
+      return ServiceResponse<bool>(
+          data: false, message: err.toString(), success: false);
     }
   }
 

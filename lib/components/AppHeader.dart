@@ -28,12 +28,10 @@ class _AppHeaderState extends State<AppHeader> {
 
   void _logout(BuildContext context) async {
     print("signed as: ${FIREBASE_INSTANCE.currentUser?.displayName}");
-    await FIREBASE_INSTANCE.signOut();
 
     setState(() {
       user = null;
     });
-    print("LOGGED: ${FIREBASE_INSTANCE.currentUser?.displayName}");
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (context) => const AuthPage(loginMode: true)),

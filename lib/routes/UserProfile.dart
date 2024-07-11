@@ -1,10 +1,16 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:meet_chat/components/AppHeader.dart';
+import 'package:meet_chat/components/BottomAppBarComponent.dart';
+import 'package:meet_chat/components/ErrorMessageWidget.dart';
+import 'package:meet_chat/components/UploadPhotosWidget.dart';
 import 'package:meet_chat/core/globals.dart';
 import 'package:meet_chat/core/models/UserModel.dart';
 import 'package:meet_chat/core/services/DatabaseService.dart';
-import '../components/BottomAppBarComponent.dart';
+import 'package:meet_chat/core/services/StorageService.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Make sure to include FirebaseAuth package
 
 class UserProfile extends StatefulWidget {
   static const String route = "profile";
@@ -21,8 +27,13 @@ class _UserProfileState extends State<UserProfile> {
   UserModel? user;
   bool isLoading = true;
   String errorMessage = '';
+  List<String> userPhotos = [];
+  bool isSelectionMode = false;
+  Set<String> selectedPhotos = Set<String>();
+  String selectionError = '';
 
   final IDatabaseService _databaseService = INJECTOR<IDatabaseService>();
+  final IStorageService _storageService = StorageService();
 
   @override
   void initState() {
@@ -34,10 +45,19 @@ class _UserProfileState extends State<UserProfile> {
     try {
       final databaseResponse = await _databaseService.getUser(widget.userId);
       if (databaseResponse.success == true) {
-        setState(() {
-          user = databaseResponse.data;
-          isLoading = false;
-        });
+        final photosResponse = await _storageService.getUserPhotos(widget.userId);
+        if (photosResponse.success == true) {
+          setState(() {
+            user = databaseResponse.data;
+            userPhotos = photosResponse.data ?? [];
+            isLoading = false;
+          });
+        } else {
+          setState(() {
+            errorMessage = photosResponse.message ?? "Error loading user photos";
+            isLoading = false;
+          });
+        }
       } else {
         setState(() {
           errorMessage = databaseResponse.message ?? "Error loading user data";
@@ -50,6 +70,157 @@ class _UserProfileState extends State<UserProfile> {
         isLoading = false;
       });
     }
+  }
+
+  Future<void> _refreshPhotos() async {
+    try {
+      final photosResponse = await _storageService.getUserPhotos(widget.userId);
+      if (photosResponse.success == true) {
+        setState(() {
+          userPhotos = photosResponse.data ?? [];
+          selectedPhotos.clear();
+        });
+      } else {
+        setState(() {
+          errorMessage = photosResponse.message ?? "Error loading user photos";
+        });
+      }
+    } catch (e) {
+      setState(() {
+        errorMessage = "Error loading user photos: $e";
+      });
+    }
+  }
+
+  Future<void> _deleteSelectedPhotos() async {
+    try {
+      for (String photoUrl in selectedPhotos) {
+        await _storageService.deleteFile(photoUrl);
+      }
+      _refreshPhotos();
+      setState(() {
+        isSelectionMode = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Selected photos deleted successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error deleting photos: $e')),
+      );
+    }
+  }
+
+  void _exitSelectionMode() {
+    setState(() {
+      isSelectionMode = false;
+      selectedPhotos.clear();
+    });
+  }
+
+  Future<void> _changeProfilePicture() async {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text('Select from uploaded photos'),
+              onTap: () {
+                Navigator.pop(context);
+                _showSelectProfilePictureDialog();
+              },
+            ),
+            ListTile(
+              title: Text('Upload new photo'),
+              onTap: () async {
+                Navigator.pop(context);
+                final picker = ImagePicker();
+                final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+                if (pickedFile != null) {
+                  final File file = File(pickedFile.path);
+                  final uploadResponse = await _storageService.uploadFile(file, widget.userId,
+                      DateTime.now().millisecondsSinceEpoch.toString());
+                  if (uploadResponse.success == true) {
+                    final updateResponse = await _databaseService.updateProfilePicture(widget.userId, uploadResponse.data!);
+                    if (updateResponse.success == true) {
+                      await FIREBASE_INSTANCE.currentUser?.updatePhotoURL(uploadResponse.data!); // Update Firebase profile picture URL
+                      setState(() {
+                        user!.ProfilePictureUrl = uploadResponse.data!;
+                      });
+                      await _refreshPhotos(); // Refresh photos after successful profile picture upload
+                    } else {
+                      setState(() {
+                        errorMessage = updateResponse.message ?? "Error updating profile picture";
+                      });
+                    }
+                  } else {
+                    setState(() {
+                      errorMessage = uploadResponse.message ?? "Error uploading profile picture";
+                    });
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showSelectProfilePictureDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Select Profile Picture'),
+          content: Container(
+            width: double.maxFinite,
+            height: 300,
+            child: GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemCount: userPhotos.length,
+              itemBuilder: (context, index) {
+                final photoUrl = userPhotos[index];
+                return GestureDetector(
+                  onTap: () async {
+                    final updateResponse = await _databaseService.updateProfilePicture(widget.userId, photoUrl);
+                    if (updateResponse.success == true) {
+                      await FIREBASE_INSTANCE.currentUser?.updatePhotoURL(photoUrl); // Update Firebase profile picture URL
+                      setState(() {
+                        user!.ProfilePictureUrl = photoUrl;
+                      });
+                      Navigator.pop(context);
+                      await _refreshPhotos(); // Refresh photos after successful profile picture update
+                    } else {
+                      setState(() {
+                        errorMessage = updateResponse.message ?? "Error updating profile picture";
+                      });
+                      Navigator.pop(context);
+                    }
+                  },
+                  child: Image.network(
+                    photoUrl,
+                    fit: BoxFit.cover,
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -66,6 +237,12 @@ class _UserProfileState extends State<UserProfile> {
             ? Center(child: Text(errorMessage))
             : Column(
           children: [
+            if (selectionError.isNotEmpty)
+              ErrorMessageWidget(
+                message: selectionError,
+                type: MessageType.error,
+                canClose: true,
+              ),
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -121,20 +298,32 @@ class _UserProfileState extends State<UserProfile> {
           fit: BoxFit.cover,
         ),
       ),
-      child: Align(
-        alignment: Alignment.bottomLeft,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text(
-            '${user!.Username}, ${user!.Age ?? ''}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              backgroundColor: Colors.black54,
+      child: Stack(
+        children: [
+          Align(
+            alignment: Alignment.bottomLeft,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                '${user!.Username}, ${user!.calculateAge() ?? ''}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  backgroundColor: Colors.black54,
+                ),
+              ),
             ),
           ),
-        ),
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: IconButton(
+              icon: const Icon(Icons.edit, color: Colors.white, size: 30),
+              onPressed: _changeProfilePicture,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -151,13 +340,23 @@ class _UserProfileState extends State<UserProfile> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.pinkAccent,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.pinkAccent,
+                    ),
+                  ),
+                  if (isSelectionMode && title == "Photos")
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.pinkAccent),
+                      onPressed: _exitSelectionMode,
+                    ),
+                ],
               ),
               const SizedBox(height: 8),
               content,
@@ -177,7 +376,7 @@ class _UserProfileState extends State<UserProfile> {
         if (user!.PhoneNumber != null)
           _buildUserInfoRow(Icons.phone, "Phone: ${user!.PhoneNumber}"),
         _buildUserInfoRow(Icons.email, "Email: ${user!.Email}"),
-        _buildUserInfoRow(Icons.cake, "Age: ${user!.Age ?? ''}"),
+        _buildUserInfoRow(Icons.cake, "Age: ${user!.calculateAge() ?? ''}"),
         if (user!.DateOfBirth != null)
           _buildUserInfoRow(Icons.calendar_today, "Date of Birth: ${_formatDate(user!.DateOfBirth!)}"),
       ],
@@ -213,33 +412,106 @@ class _UserProfileState extends State<UserProfile> {
   }
 
   Widget _buildPhotoGallery() {
-    final List<String> photos = [
-      user!.ProfilePictureUrl,
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-      ),
-      itemCount: photos.length,
-      itemBuilder: (context, index) {
-        return GestureDetector(
-          onTap: () {
-            _showPhotoDialog(photos[index]);
+    return Column(
+      children: [
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+          ),
+          itemCount: userPhotos.length + 1,
+          itemBuilder: (context, index) {
+            if (index == userPhotos.length) {
+              return GestureDetector(
+                onTap: () async {
+                  UploadPhotosWidget(
+                    userId: widget.userId,
+                    onUploadComplete: _refreshPhotos,
+                  ).pickAndUploadImages(context);
+                },
+                child: Container(
+                  color: Colors.grey[200],
+                  child: const Center(
+                    child: Icon(
+                      Icons.add,
+                      size: 50,
+                      color: Colors.pinkAccent,
+                    ),
+                  ),
+                ),
+              );
+            }
+            final photoUrl = userPhotos[index];
+            final isSelected = selectedPhotos.contains(photoUrl);
+            return GestureDetector(
+              onTap: () {
+                if (isSelectionMode) {
+                  setState(() {
+                    if (photoUrl == user!.ProfilePictureUrl) {
+                      selectionError = "Profile picture cannot be deleted.";
+                    } else {
+                      selectionError = '';
+                      if (isSelected) {
+                        selectedPhotos.remove(photoUrl);
+                      } else {
+                        selectedPhotos.add(photoUrl);
+                      }
+                    }
+                  });
+                } else {
+                  _showPhotoDialog(photoUrl);
+                }
+              },
+              onLongPress: () {
+                if (photoUrl != user!.ProfilePictureUrl) {
+                  setState(() {
+                    isSelectionMode = true;
+                    selectedPhotos.add(photoUrl);
+                  });
+                } else {
+                  setState(() {
+                    selectionError = "Profile picture cannot be deleted.";
+                  });
+                }
+              },
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      photoUrl,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  if (isSelectionMode)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Icon(
+                        isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                        color: Colors.pinkAccent,
+                      ),
+                    ),
+                ],
+              ),
+            );
           },
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.network(
-              photos[index],
-              fit: BoxFit.cover,
+        ),
+        if (isSelectionMode)
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton(
+              onPressed: selectedPhotos.isEmpty ? null : _deleteSelectedPhotos,
+              child: Text('Delete Selected Photos'),
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white, backgroundColor: Colors.red, // Text color
+              ),
             ),
           ),
-        );
-      },
+      ],
     );
   }
 

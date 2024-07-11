@@ -71,9 +71,9 @@ class UserCard extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      if (user.Age != null)
+                      if (user.DateOfBirth != null)
                         Text(
-                          '${user.Age} years',
+                          '${user.calculateAge()} years',
                           style: TextStyle(
                             fontSize: isSwipePage ? 20 : 14, // Larger font size if in SwipePage
                             fontWeight: FontWeight.bold,

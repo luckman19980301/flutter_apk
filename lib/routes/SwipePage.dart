@@ -304,9 +304,9 @@ class _SwipePageState extends State<SwipePage> {
         buttons: [
           buildIconButton(
             icon: FontAwesomeIcons.arrowLeft,
-            startColor: Colors.blueAccent,
-            endColor: Colors.lightBlueAccent,
-            onPressed: _onSwipeLeft,
+            startColor: _currentIndex > 0 ? Colors.blueAccent : Colors.grey,
+            endColor: _currentIndex > 0 ? Colors.lightBlueAccent : Colors.grey,
+            onPressed: _currentIndex > 0 ? _onSwipeLeft : null,
           ),
           buildIconButton(
             icon: FontAwesomeIcons.times,
@@ -318,17 +318,17 @@ class _SwipePageState extends State<SwipePage> {
           ),
           buildIconButton(
             icon: FontAwesomeIcons.userPlus,
-            startColor: Colors.greenAccent,
-            endColor: Colors.green,
-            onPressed: () {
+            startColor: _users.isNotEmpty ? Colors.greenAccent : Colors.grey,
+            endColor: _users.isNotEmpty ? Colors.green : Colors.grey,
+            onPressed: _users.isNotEmpty ? () {
               // Add friend request logic here
-            },
+            } : null,
           ),
           buildIconButton(
             icon: FontAwesomeIcons.arrowRight,
-            startColor: Colors.blueAccent,
-            endColor: Colors.lightBlueAccent,
-            onPressed: _onSwipeRight,
+            startColor: _currentIndex < _users.length - 1 ? Colors.blueAccent : Colors.grey,
+            endColor: _currentIndex < _users.length - 1 ? Colors.lightBlueAccent : Colors.grey,
+            onPressed: _currentIndex < _users.length - 1 ? _onSwipeRight : null,
           ),
         ],
       ),

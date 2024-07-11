@@ -45,14 +45,12 @@ class _LoginFormState extends State<LoginForm> {
 
       ServiceResponse<UserCredential> response =
       await widget.authenticationService.login(email, password);
-      print("signed as: ${FIREBASE_INSTANCE.currentUser?.displayName}");
 
       if (response.success == true) {
         final databaseResponse = await widget.databaseService.getUser(FIREBASE_INSTANCE.currentUser!.uid);
         if (databaseResponse.success == true) {
           await FIREBASE_INSTANCE.currentUser?.updateDisplayName(databaseResponse.data?.Username);
           await FIREBASE_INSTANCE.currentUser?.updatePhotoURL(databaseResponse.data?.ProfilePictureUrl);
-          print("signed as: ${FIREBASE_INSTANCE.currentUser?.displayName}");
 
           Navigator.pushNamed(context, HomePage.route);
         } else {

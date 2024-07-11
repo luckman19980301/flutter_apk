@@ -1,7 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart' show DocumentSnapshot;
-import 'package:firebase_auth/firebase_auth.dart' show User;
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:meet_chat/components/AppHeader.dart';
+import 'package:meet_chat/components/BottomAppBarComponent.dart';
 import 'package:meet_chat/components/ErrorMessageWidget.dart';
 import 'package:meet_chat/components/UserCard.dart';
 import 'package:meet_chat/core/globals.dart';
@@ -9,8 +11,6 @@ import 'package:meet_chat/core/models/UserModel.dart';
 import 'package:meet_chat/core/services/DatabaseService.dart';
 import 'package:meet_chat/routes/SwipePage.dart';
 import 'package:meet_chat/routes/UserProfile.dart';
-import '../components/AppHeader.dart';
-import '../components/BottomAppBarComponent.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -215,61 +215,61 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildMatchesTab() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          if (users.isNotEmpty)
-            Expanded(
-              child: GridView.builder(
-                controller: _scrollController,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 3 / 4, // Increased height of the card
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                ),
-                itemCount: users.length,
-                itemBuilder: (context, index) {
-                  final user = users[index];
-                  return UserCard(user: user);
-                },
+    return Column(
+      children: [
+        if (users.isNotEmpty)
+          Expanded(
+            child: GridView.builder(
+              controller: _scrollController,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 3 / 4, // Increased height of the card
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
               ),
+              itemCount: users.length,
+              itemBuilder: (context, index) {
+                final user = users[index];
+                return UserCard(user: user);
+              },
             ),
-          if (isLoading)
-            const Center(
-              child: CircularProgressIndicator(),
-            ),
-          if (!isLoading) _buildLoadMoreButton(),
-        ],
-      ),
+          ),
+        if (isLoading)
+          const Center(
+            child: CircularProgressIndicator(),
+          ),
+        if (!isLoading) _buildLoadMoreButton(),
+      ],
     );
   }
 
   Widget _buildLoadMoreButton() {
     return Center(
-      child: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFFF5F6D), Colors.pinkAccent],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.all(Radius.circular(12)),
-        ),
-        child: ElevatedButton(
-          onPressed: getUsers,
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
-            backgroundColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.all(5.0),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFFF5F6D), Colors.pinkAccent],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.all(Radius.circular(12)),
           ),
-          child: Text(
-            users.isEmpty ? 'Refresh' : 'Load more users',
-            style: const TextStyle(fontSize: 18),
+          child: ElevatedButton(
+            onPressed: getUsers,
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              users.isEmpty ? 'Refresh' : 'Load more users',
+              style: const TextStyle(fontSize: 18),
+            ),
           ),
         ),
       ),

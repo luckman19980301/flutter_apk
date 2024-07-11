@@ -32,7 +32,7 @@ Widget buildIconButton({
   required IconData icon,
   required Color startColor,
   required Color endColor,
-  required VoidCallback onPressed,
+  required VoidCallback? onPressed,
 }) {
   return Material(
     elevation: 10,
@@ -58,6 +58,7 @@ Widget buildIconButton({
       child: IconButton(
         onPressed: onPressed,
         icon: Icon(icon, color: Colors.white),
+        disabledColor: Colors.grey, // Change color for disabled state
       ),
     ),
   );
