@@ -1,10 +1,11 @@
-import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/material.dart';
-import 'package:meet_chat/core/globals.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:meet_chat/core/providers/UserProvider.dart';
 import 'package:meet_chat/routes/%5BAuth%5D/AuthPage.dart';
-import 'package:meet_chat/routes/SearchPage.dart'; // Import the SearchPage
+import 'package:meet_chat/routes/SearchPage.dart';
 
-class AppHeader extends StatefulWidget implements PreferredSizeWidget {
+class AppHeader extends ConsumerWidget implements PreferredSizeWidget {
   final String title;
   final TabController? tabController;
   final List<Widget>? tabs;
@@ -17,30 +18,12 @@ class AppHeader extends StatefulWidget implements PreferredSizeWidget {
   });
 
   @override
-  State<AppHeader> createState() => _AppHeaderState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userState = ref.watch(userProvider);
+    final user = FirebaseAuth.instance.currentUser;
+    final photoURL = userState.profilePictureUrl ?? user?.photoURL;
+    final displayName = userState.username ?? user?.displayName;
 
-  @override
-  Size get preferredSize => Size.fromHeight(kToolbarHeight + (tabController != null ? kTextTabBarHeight : 0.0));
-}
-
-class _AppHeaderState extends State<AppHeader> {
-  late User? user = FIREBASE_INSTANCE.currentUser;
-
-  void _logout(BuildContext context) async {
-    print("signed as: ${FIREBASE_INSTANCE.currentUser?.displayName}");
-
-    setState(() {
-      user = null;
-    });
-
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => const AuthPage(loginMode: true)),
-    );
-  }
-
-
-  @override
-  Widget build(BuildContext context) {
     return AppBar(
       flexibleSpace: Container(
         decoration: const BoxDecoration(
@@ -53,23 +36,23 @@ class _AppHeaderState extends State<AppHeader> {
       ),
       title: Row(
         children: [
-          if (user != null && user!.photoURL != null)
+          if (photoURL != null)
             CircleAvatar(
-              backgroundImage: NetworkImage(user!.photoURL!),
+              backgroundImage: NetworkImage(photoURL),
             ),
           const SizedBox(width: 10),
           if (user != null)
             Text(
-              user!.displayName ?? "User",
+              displayName.toString(),
               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
         ],
       ),
-      bottom: (widget.tabController != null && widget.tabs != null)
+      bottom: (tabController != null && tabs != null)
           ? TabBar(
         indicatorColor: Colors.amberAccent,
-        controller: widget.tabController,
-        tabs: widget.tabs!,
+        controller: tabController,
+        tabs: tabs!,
       )
           : null,
       actions: <Widget>[
@@ -129,4 +112,15 @@ class _AppHeaderState extends State<AppHeader> {
       ],
     );
   }
+
+  void _logout(BuildContext context) async {
+    await FirebaseAuth.instance.signOut();
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => const AuthPage(loginMode: true)),
+    );
+  }
+
+  @override
+  Size get preferredSize => Size.fromHeight(kToolbarHeight + (tabController != null ? kTextTabBarHeight : 0.0));
 }

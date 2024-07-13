@@ -1,18 +1,22 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import 'package:meet_chat/components/AppHeader.dart';
 import 'package:meet_chat/components/BottomAppBarComponent.dart';
 import 'package:meet_chat/components/ErrorMessageWidget.dart';
 import 'package:meet_chat/components/UploadPhotosWidget.dart';
 import 'package:meet_chat/core/globals.dart';
 import 'package:meet_chat/core/models/UserModel.dart';
+import 'package:meet_chat/core/providers/UserProvider.dart';
 import 'package:meet_chat/core/services/DatabaseService.dart';
 import 'package:meet_chat/core/services/StorageService.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Make sure to include FirebaseAuth package
+import 'package:meet_chat/routes/ChatScreen.dart';
 
-class UserProfile extends StatefulWidget {
+class UserProfile extends ConsumerStatefulWidget {
   static const String route = "profile";
 
   final String userId;
@@ -23,7 +27,7 @@ class UserProfile extends StatefulWidget {
   _UserProfileState createState() => _UserProfileState();
 }
 
-class _UserProfileState extends State<UserProfile> {
+class _UserProfileState extends ConsumerState<UserProfile> {
   UserModel? user;
   bool isLoading = true;
   String errorMessage = '';
@@ -34,6 +38,9 @@ class _UserProfileState extends State<UserProfile> {
 
   final IDatabaseService _databaseService = INJECTOR<IDatabaseService>();
   final IStorageService _storageService = StorageService();
+  final User? currentUser = FirebaseAuth.instance.currentUser;
+
+  bool get isUserProfileOwner => currentUser?.uid == widget.userId;
 
   @override
   void initState() {
@@ -45,7 +52,8 @@ class _UserProfileState extends State<UserProfile> {
     try {
       final databaseResponse = await _databaseService.getUser(widget.userId);
       if (databaseResponse.success == true) {
-        final photosResponse = await _storageService.getUserPhotos(widget.userId);
+        final photosResponse =
+        await _storageService.getUserPhotos(widget.userId);
         if (photosResponse.success == true) {
           setState(() {
             user = databaseResponse.data;
@@ -54,7 +62,8 @@ class _UserProfileState extends State<UserProfile> {
           });
         } else {
           setState(() {
-            errorMessage = photosResponse.message ?? "Error loading user photos";
+            errorMessage =
+                photosResponse.message ?? "Error loading user photos";
             isLoading = false;
           });
         }
@@ -102,7 +111,7 @@ class _UserProfileState extends State<UserProfile> {
         isSelectionMode = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Selected photos deleted successfully')),
+        const SnackBar(content: Text('Selected photos deleted successfully')),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -119,6 +128,8 @@ class _UserProfileState extends State<UserProfile> {
   }
 
   Future<void> _changeProfilePicture() async {
+    if (!isUserProfileOwner) return; // Prevent changing profile picture if not the owner
+
     showModalBottomSheet(
       context: context,
       builder: (context) {
@@ -126,38 +137,48 @@ class _UserProfileState extends State<UserProfile> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              title: Text('Select from uploaded photos'),
+              title: const Text('Select from uploaded photos'),
               onTap: () {
                 Navigator.pop(context);
                 _showSelectProfilePictureDialog();
               },
             ),
             ListTile(
-              title: Text('Upload new photo'),
+              title: const Text('Upload new photo'),
               onTap: () async {
                 Navigator.pop(context);
                 final picker = ImagePicker();
-                final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+                final pickedFile =
+                await picker.pickImage(source: ImageSource.gallery);
                 if (pickedFile != null) {
                   final File file = File(pickedFile.path);
-                  final uploadResponse = await _storageService.uploadFile(file, widget.userId,
+                  final uploadResponse = await _storageService.uploadFile(
+                      file,
+                      'users/${widget.userId}_photos',
                       DateTime.now().millisecondsSinceEpoch.toString());
                   if (uploadResponse.success == true) {
-                    final updateResponse = await _databaseService.updateProfilePicture(widget.userId, uploadResponse.data!);
+                    final updateResponse =
+                    await _databaseService.updateProfilePicture(
+                        widget.userId, uploadResponse.data!);
                     if (updateResponse.success == true) {
-                      await FIREBASE_INSTANCE.currentUser?.updatePhotoURL(uploadResponse.data!); // Update Firebase profile picture URL
+                      await FIREBASE_INSTANCE.currentUser?.updatePhotoURL(
+                          uploadResponse.data!); // Update Firebase profile picture URL
+                      ref.read(userProvider.notifier).setProfilePictureUrl(
+                          uploadResponse.data!); // Update UserProvider
                       setState(() {
                         user!.ProfilePictureUrl = uploadResponse.data!;
                       });
                       await _refreshPhotos(); // Refresh photos after successful profile picture upload
                     } else {
                       setState(() {
-                        errorMessage = updateResponse.message ?? "Error updating profile picture";
+                        errorMessage = updateResponse.message ??
+                            "Error updating profile picture";
                       });
                     }
                   } else {
                     setState(() {
-                      errorMessage = uploadResponse.message ?? "Error uploading profile picture";
+                      errorMessage = uploadResponse.message ??
+                          "Error uploading profile picture";
                     });
                   }
                 }
@@ -174,7 +195,7 @@ class _UserProfileState extends State<UserProfile> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Select Profile Picture'),
+          title: const Text('Select Profile Picture'),
           content: Container(
             width: double.maxFinite,
             height: 300,
@@ -189,9 +210,13 @@ class _UserProfileState extends State<UserProfile> {
                 final photoUrl = userPhotos[index];
                 return GestureDetector(
                   onTap: () async {
-                    final updateResponse = await _databaseService.updateProfilePicture(widget.userId, photoUrl);
+                    final updateResponse = await _databaseService
+                        .updateProfilePicture(widget.userId, photoUrl);
                     if (updateResponse.success == true) {
-                      await FIREBASE_INSTANCE.currentUser?.updatePhotoURL(photoUrl); // Update Firebase profile picture URL
+                      await FIREBASE_INSTANCE.currentUser?.updatePhotoURL(
+                          photoUrl); // Update Firebase profile picture URL
+                      ref.read(userProvider.notifier).setProfilePictureUrl(
+                          photoUrl); // Update UserProvider
                       setState(() {
                         user!.ProfilePictureUrl = photoUrl;
                       });
@@ -199,7 +224,8 @@ class _UserProfileState extends State<UserProfile> {
                       await _refreshPhotos(); // Refresh photos after successful profile picture update
                     } else {
                       setState(() {
-                        errorMessage = updateResponse.message ?? "Error updating profile picture";
+                        errorMessage = updateResponse.message ??
+                            "Error updating profile picture";
                       });
                       Navigator.pop(context);
                     }
@@ -215,12 +241,223 @@ class _UserProfileState extends State<UserProfile> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Close'),
+              child: const Text('Close'),
             ),
           ],
         );
       },
     );
+  }
+
+  void _showEditModal() {
+    TextEditingController usernameController =
+    TextEditingController(text: user?.Username);
+    TextEditingController firstNameController =
+    TextEditingController(text: user?.FirstName);
+    TextEditingController lastNameController =
+    TextEditingController(text: user?.LastName);
+    TextEditingController phoneController =
+    TextEditingController(text: user?.PhoneNumber);
+    TextEditingController emailController =
+    TextEditingController(text: user?.Email);
+    TextEditingController aboutMeController =
+    TextEditingController(text: user?.AboutMe);
+    DateTime? selectedDate = user?.DateOfBirth;
+
+    void _pickDateOfBirth(BuildContext context) async {
+      final DateTime? picked = await showDatePicker(
+        context: context,
+        initialDate: selectedDate ?? DateTime(2000),
+        firstDate: DateTime(1900),
+        lastDate: DateTime.now(),
+      );
+      if (picked != null && picked != selectedDate) {
+        setState(() {
+          selectedDate = picked;
+        });
+      }
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 16.0,
+            right: 16.0,
+            top: 16.0,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Edit Profile',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: usernameController,
+                  decoration: const InputDecoration(labelText: 'Username'),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: firstNameController,
+                  decoration: const InputDecoration(labelText: 'First Name'),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: lastNameController,
+                  decoration: const InputDecoration(labelText: 'Last Name'),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: phoneController,
+                  decoration: const InputDecoration(labelText: 'Phone'),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(labelText: 'Email'),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: aboutMeController,
+                  maxLines: null,
+                  decoration: const InputDecoration(labelText: 'About Me'),
+                ),
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: () => _pickDateOfBirth(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 15, horizontal: 10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          selectedDate == null
+                              ? 'Select Date of Birth'
+                              : DateFormat('dd.MM.yyyy').format(selectedDate!),
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        ShaderMask(
+                          shaderCallback: (Rect bounds) {
+                            return LinearGradient(
+                              colors: [Color(0xFFFF5F6D), Colors.pinkAccent],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ).createShader(bounds);
+                          },
+                          child: const Icon(
+                            Icons.calendar_today,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFFFF5F6D), Colors.pinkAccent],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.all(Radius.circular(12)),
+                        ),
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                      Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFFFF5F6D), Colors.pinkAccent],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.all(Radius.circular(12)),
+                        ),
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            Navigator.pop(context);
+                            await _updateUserProfile(
+                              usernameController.text,
+                              firstNameController.text,
+                              lastNameController.text,
+                              phoneController.text,
+                              emailController.text,
+                              aboutMeController.text,
+                              selectedDate,
+                            );
+                          },
+                          child: const Text('Save'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _updateUserProfile(
+      String username,
+      String firstName,
+      String lastName,
+      String phone,
+      String email,
+      String aboutMe,
+      DateTime? dateOfBirth,
+      ) async {
+    if (user == null) return;
+
+    user!.Username = username;
+    user!.FirstName = firstName;
+    user!.LastName = lastName;
+    user!.PhoneNumber = phone;
+    user!.Email = email;
+    user!.AboutMe = aboutMe;
+    user!.DateOfBirth = dateOfBirth;
+
+    final response =
+    await _databaseService.updateUserData(widget.userId, user!);
+    if (response.success == true) {
+      await currentUser?.updateDisplayName(username);
+      ref.read(userProvider.notifier).setUsername(username);
+      setState(() {});
+    } else {
+      setState(() {
+        errorMessage = response.message ?? "Error updating user data";
+      });
+    }
   }
 
   @override
@@ -281,7 +518,7 @@ class _UserProfileState extends State<UserProfile> {
             startColor: Colors.red,
             endColor: Colors.deepOrange,
             onPressed: () {
-              // Redirect to messages page
+              Navigator.pushNamed(context, ChatScreen.route, arguments: user?.Id);
             },
           ),
         ],
@@ -290,6 +527,9 @@ class _UserProfileState extends State<UserProfile> {
   }
 
   Widget _buildHeader() {
+    final userState = ref.watch(userProvider);
+    final displayName = userState.username ?? user!.Username;
+
     return Container(
       height: 300,
       decoration: BoxDecoration(
@@ -305,7 +545,7 @@ class _UserProfileState extends State<UserProfile> {
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Text(
-                '${user!.Username}, ${user!.calculateAge() ?? ''}',
+                '$displayName, ${user!.calculateAge() ?? ''}',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 24,
@@ -315,14 +555,15 @@ class _UserProfileState extends State<UserProfile> {
               ),
             ),
           ),
-          Positioned(
-            bottom: 16,
-            right: 16,
-            child: IconButton(
-              icon: const Icon(Icons.edit, color: Colors.white, size: 30),
-              onPressed: _changeProfilePicture,
+          if (isUserProfileOwner)
+            Positioned(
+              bottom: 16,
+              right: 16,
+              child: IconButton(
+                icon: const Icon(Icons.edit, color: Colors.white, size: 30),
+                onPressed: _changeProfilePicture,
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -333,7 +574,8 @@ class _UserProfileState extends State<UserProfile> {
       padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
       child: Card(
         color: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
+        shape:
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
         elevation: 5,
         child: Padding(
           padding: const EdgeInsets.all(12.0),
@@ -351,6 +593,12 @@ class _UserProfileState extends State<UserProfile> {
                       color: Colors.pinkAccent,
                     ),
                   ),
+                  if (isUserProfileOwner &&
+                      (title == "User Info" || title == "About Me"))
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.pinkAccent),
+                      onPressed: _showEditModal,
+                    ),
                   if (isSelectionMode && title == "Photos")
                     IconButton(
                       icon: const Icon(Icons.close, color: Colors.pinkAccent),
@@ -368,17 +616,23 @@ class _UserProfileState extends State<UserProfile> {
   }
 
   Widget _buildUserInfo() {
+    final userState = ref.watch(userProvider);
+    final displayName = userState.username ?? user!.Username;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _buildUserInfoRow(Icons.person, "Username: $displayName"),
         if (user!.FirstName != null && user!.LastName != null)
-          _buildUserInfoRow(Icons.person, "Name: ${user!.FirstName} ${user!.LastName}"),
+          _buildUserInfoRow(
+              Icons.person, "Name: ${user!.FirstName} ${user!.LastName}"),
         if (user!.PhoneNumber != null)
           _buildUserInfoRow(Icons.phone, "Phone: ${user!.PhoneNumber}"),
         _buildUserInfoRow(Icons.email, "Email: ${user!.Email}"),
         _buildUserInfoRow(Icons.cake, "Age: ${user!.calculateAge() ?? ''}"),
         if (user!.DateOfBirth != null)
-          _buildUserInfoRow(Icons.calendar_today, "Date of Birth: ${_formatDate(user!.DateOfBirth!)}"),
+          _buildUserInfoRow(Icons.calendar_today,
+              "Date of Birth: ${_formatDate(user!.DateOfBirth!)}"),
       ],
     );
   }
@@ -422,9 +676,10 @@ class _UserProfileState extends State<UserProfile> {
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,
           ),
-          itemCount: userPhotos.length + 1,
+          itemCount:
+          isUserProfileOwner ? userPhotos.length + 1 : userPhotos.length,
           itemBuilder: (context, index) {
-            if (index == userPhotos.length) {
+            if (isUserProfileOwner && index == userPhotos.length) {
               return GestureDetector(
                 onTap: () async {
                   UploadPhotosWidget(
@@ -466,15 +721,17 @@ class _UserProfileState extends State<UserProfile> {
                 }
               },
               onLongPress: () {
-                if (photoUrl != user!.ProfilePictureUrl) {
-                  setState(() {
-                    isSelectionMode = true;
-                    selectedPhotos.add(photoUrl);
-                  });
-                } else {
-                  setState(() {
-                    selectionError = "Profile picture cannot be deleted.";
-                  });
+                if (isUserProfileOwner) {
+                  if (photoUrl != user!.ProfilePictureUrl) {
+                    setState(() {
+                      isSelectionMode = true;
+                      selectedPhotos.add(photoUrl);
+                    });
+                  } else {
+                    setState(() {
+                      selectionError = "Profile picture cannot be deleted.";
+                    });
+                  }
                 }
               },
               child: Stack(
@@ -491,7 +748,9 @@ class _UserProfileState extends State<UserProfile> {
                       top: 8,
                       right: 8,
                       child: Icon(
-                        isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                        isSelected
+                            ? Icons.check_circle
+                            : Icons.radio_button_unchecked,
                         color: Colors.pinkAccent,
                       ),
                     ),
@@ -505,9 +764,10 @@ class _UserProfileState extends State<UserProfile> {
             padding: const EdgeInsets.all(16.0),
             child: ElevatedButton(
               onPressed: selectedPhotos.isEmpty ? null : _deleteSelectedPhotos,
-              child: Text('Delete Selected Photos'),
+              child: const Text('Delete Selected Photos'),
               style: ElevatedButton.styleFrom(
-                foregroundColor: Colors.white, backgroundColor: Colors.red, // Text color
+                foregroundColor: Colors.white,
+                backgroundColor: Colors.red, // Text color
               ),
             ),
           ),

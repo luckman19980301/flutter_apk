@@ -5,7 +5,7 @@ import 'package:meet_chat/core/models/ServiceResponse.dart';
 
 abstract class IStorageService {
   Future<ServiceResponse<String>> uploadFile(
-      File? file, String userId, String fileName);
+      File? file, String directory, String fileName);
 
   Future<ServiceResponse<List<String>>> getUserPhotos(String userId);
 
@@ -15,16 +15,15 @@ abstract class IStorageService {
 class StorageService implements IStorageService {
   @override
   Future<ServiceResponse<String>> uploadFile(
-      File? file, String userId, String fileName) async {
+      File? file, String directory, String fileName) async {
     try {
       if (file == null) {
         return ServiceResponse(
             data: '', success: false, message: "No file provided.");
       }
 
-      final directoryName = 'users/${userId}_photos';
       final storageRef =
-          FIREBASE_STORAGE.ref().child(directoryName).child(userId + fileName);
+      FIREBASE_STORAGE.ref().child(directory).child(fileName);
 
       await storageRef.putFile(file);
       final fileUrl = await storageRef.getDownloadURL();

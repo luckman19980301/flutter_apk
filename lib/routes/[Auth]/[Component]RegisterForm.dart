@@ -125,7 +125,7 @@ class _RegisterFormState extends State<RegisterForm> {
 
       ServiceResponse<String> storageResponse = await widget.storageService.uploadFile(
         _selectedImage!,
-        userId,
+        'users/${userId}_photos',
         DateTime.now().millisecondsSinceEpoch.toString(),
       );
       if (storageResponse.success == false) {
