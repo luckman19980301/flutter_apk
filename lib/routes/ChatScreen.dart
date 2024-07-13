@@ -40,8 +40,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _pickAndSendFile() async {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Choose from Gallery'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Take a Photo'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _pickImage(ImageSource.camera);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    final pickedFile = await picker.pickImage(source: source);
     if (pickedFile != null) {
       final file = File(pickedFile.path);
       await _sendFile(file);
@@ -80,11 +109,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                if (!chatSnapshot.hasData || chatSnapshot.data == null || !(chatSnapshot.data!.data() as Map<String, dynamic>).containsKey('messages')) {
+                if (!chatSnapshot.hasData || chatSnapshot.data == null) {
                   return const Center(child: Text('No messages yet.'));
                 }
 
-                final messages = List<Map<String, dynamic>>.from((chatSnapshot.data!.data() as Map<String, dynamic>)['messages']);
+                final data = chatSnapshot.data!.data() as Map<String, dynamic>?;
+                if (data == null || !data.containsKey('messages')) {
+                  return const Center(child: Text('No messages yet.'));
+                }
+
+                final messages = List<Map<String, dynamic>>.from(data['messages']);
 
                 return ListView.builder(
                   reverse: true,
