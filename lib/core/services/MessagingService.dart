@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:meet_chat/core/models/ServiceResponse.dart';
+import 'package:meet_chat/core/models/Message.dart';
 import 'package:meet_chat/core/globals.dart';
 import 'package:meet_chat/core/services/StorageService.dart';
 
@@ -11,7 +12,7 @@ abstract class IMessagingService {
       String senderId, String recipientId, String message);
   Future<ServiceResponse<void>> sendFileMessage(
       String senderId, String recipientId, File file);
-  Stream<DocumentSnapshot> loadMessages(String senderId, String recipientId);
+  Stream<List<Message>> loadMessages(String senderId, String recipientId); // Update return type
 }
 
 class MessagingService implements IMessagingService {
@@ -33,7 +34,7 @@ class MessagingService implements IMessagingService {
         'recipientId': recipientId,
         'username': _auth.currentUser?.displayName ?? 'Anonymous',
         'userImage': _auth.currentUser?.photoURL,
-        'fileUrl': null
+        'file': null,
       };
 
       await chatDocRef.update({
@@ -48,10 +49,10 @@ class MessagingService implements IMessagingService {
         }
       });
 
-      return ServiceResponse<bool>(data: true, success: true);
+      return ServiceResponse<void>(data: null, success: true);
     } on Exception catch (err) {
-      return ServiceResponse<bool>(
-          data: false, message: err.toString(), success: false);
+      return ServiceResponse<void>(
+          data: null, message: err.toString(), success: false);
     }
   }
 
@@ -72,6 +73,7 @@ class MessagingService implements IMessagingService {
         return ServiceResponse<void>(message: uploadResponse.message ?? "File upload failed.");
       }
 
+      final fileMetadata = uploadResponse.data!;
       final chatDocRef = _firestore.collection('chats').doc(chatId);
 
       final newMessage = {
@@ -81,7 +83,7 @@ class MessagingService implements IMessagingService {
         'recipientId': recipientId,
         'username': _auth.currentUser?.displayName ?? 'Anonymous',
         'userImage': _auth.currentUser?.photoURL,
-        'fileUrl': uploadResponse.data
+        'file': fileMetadata.toMap(),
       };
 
       await chatDocRef.update({
@@ -96,17 +98,30 @@ class MessagingService implements IMessagingService {
         }
       });
 
-      return ServiceResponse<bool>(data: true, success: true);
+      return ServiceResponse<void>(data: null, success: true);
     } on Exception catch (err) {
-      return ServiceResponse<bool>(
-          data: false, message: err.toString(), success: false);
+      return ServiceResponse<void>(
+          data: null, message: err.toString(), success: false);
     }
   }
 
   @override
-  Stream<DocumentSnapshot> loadMessages(String senderId, String recipientId) {
+  Stream<List<Message>> loadMessages(String senderId, String recipientId) {
     final chatId = _getChatId(senderId, recipientId);
-    return _firestore.collection('chats').doc(chatId).snapshots();
+    return _firestore.collection('chats').doc(chatId).snapshots().map((snapshot) {
+      if (!snapshot.exists) {
+        return [];
+      }
+
+      final data = snapshot.data();
+      if (data == null || !data.containsKey('messages')) {
+        return [];
+      }
+
+      return List<Map<String, dynamic>>.from(data['messages'])
+          .map((messageData) => Message.fromMap(messageData))
+          .toList();
+    });
   }
 
   String _getChatId(String userId1, String userId2) {

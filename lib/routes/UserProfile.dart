@@ -8,8 +8,8 @@ import 'package:intl/intl.dart';
 import 'package:meet_chat/components/AppHeader.dart';
 import 'package:meet_chat/components/BottomAppBarComponent.dart';
 import 'package:meet_chat/components/ErrorMessageWidget.dart';
-import 'package:meet_chat/components/UploadPhotosWidget.dart';
 import 'package:meet_chat/core/globals.dart';
+import 'package:meet_chat/core/models/FileMetadata.dart';
 import 'package:meet_chat/core/models/UserModel.dart';
 import 'package:meet_chat/core/providers/UserProvider.dart';
 import 'package:meet_chat/core/services/DatabaseService.dart';
@@ -31,7 +31,7 @@ class _UserProfileState extends ConsumerState<UserProfile> {
   UserModel? user;
   bool isLoading = true;
   String errorMessage = '';
-  List<String> userPhotos = [];
+  List<FileMetadata> userPhotos = [];
   bool isSelectionMode = false;
   Set<String> selectedPhotos = Set<String>();
   String selectionError = '';
@@ -52,8 +52,7 @@ class _UserProfileState extends ConsumerState<UserProfile> {
     try {
       final databaseResponse = await _databaseService.getUser(widget.userId);
       if (databaseResponse.success == true) {
-        final photosResponse =
-        await _storageService.getUserPhotos(widget.userId);
+        final photosResponse = await _storageService.getUserPhotos(widget.userId);
         if (photosResponse.success == true) {
           setState(() {
             user = databaseResponse.data;
@@ -62,8 +61,7 @@ class _UserProfileState extends ConsumerState<UserProfile> {
           });
         } else {
           setState(() {
-            errorMessage =
-                photosResponse.message ?? "Error loading user photos";
+            errorMessage = photosResponse.message ?? "Error loading user photos";
             isLoading = false;
           });
         }
@@ -137,6 +135,7 @@ class _UserProfileState extends ConsumerState<UserProfile> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
+              leading: const Icon(Icons.photo_library),
               title: const Text('Select from uploaded photos'),
               onTap: () {
                 Navigator.pop(context);
@@ -144,47 +143,78 @@ class _UserProfileState extends ConsumerState<UserProfile> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.camera_alt),
               title: const Text('Upload new photo'),
               onTap: () async {
                 Navigator.pop(context);
-                final picker = ImagePicker();
-                final pickedFile =
-                await picker.pickImage(source: ImageSource.gallery);
-                if (pickedFile != null) {
-                  final File file = File(pickedFile.path);
-                  final uploadResponse = await _storageService.uploadFile(
-                      file,
-                      'users/${widget.userId}_photos',
-                      DateTime.now().millisecondsSinceEpoch.toString());
-                  if (uploadResponse.success == true) {
-                    final updateResponse =
-                    await _databaseService.updateProfilePicture(
-                        widget.userId, uploadResponse.data!);
-                    if (updateResponse.success == true) {
-                      await FIREBASE_INSTANCE.currentUser?.updatePhotoURL(
-                          uploadResponse.data!); // Update Firebase profile picture URL
-                      ref.read(userProvider.notifier).setProfilePictureUrl(
-                          uploadResponse.data!); // Update UserProvider
-                      setState(() {
-                        user!.ProfilePictureUrl = uploadResponse.data!;
-                      });
-                      await _refreshPhotos(); // Refresh photos after successful profile picture upload
-                    } else {
-                      setState(() {
-                        errorMessage = updateResponse.message ??
-                            "Error updating profile picture";
-                      });
-                    }
-                  } else {
-                    setState(() {
-                      errorMessage = uploadResponse.message ??
-                          "Error uploading profile picture";
-                    });
-                  }
-                }
+                _showImageSourceActionSheet(_handleProfilePictureUpload);
               },
             ),
           ],
+        );
+      },
+    );
+  }
+
+  Future<void> _handleProfilePictureUpload(File file) async {
+    final uploadResponse = await _storageService.uploadFile(
+        file, 'users/${widget.userId}_photos', DateTime.now().millisecondsSinceEpoch.toString());
+    if (uploadResponse.success == true) {
+      final updateResponse = await _databaseService.updateProfilePicture(
+          widget.userId, uploadResponse.data!.url);
+      if (updateResponse.success == true) {
+        await currentUser?.updatePhotoURL(uploadResponse.data!.url); // Update Firebase profile picture URL
+        ref.read(userProvider.notifier).setProfilePictureUrl(uploadResponse.data!.url); // Update UserProvider
+        setState(() {
+          user!.ProfilePictureUrl = uploadResponse.data!.url;
+        });
+        await _refreshPhotos(); // Refresh photos after successful profile picture upload
+      } else {
+        setState(() {
+          errorMessage = updateResponse.message ?? "Error updating profile picture";
+        });
+      }
+    } else {
+      setState(() {
+        errorMessage = uploadResponse.message ?? "Error uploading profile picture";
+      });
+    }
+  }
+
+  Future<void> _showImageSourceActionSheet(Function(File) onImagePicked) async {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Choose from Gallery'),
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  final picker = ImagePicker();
+                  final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+                  if (pickedFile != null) {
+                    onImagePicked(File(pickedFile.path));
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Take a Photo'),
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  final picker = ImagePicker();
+                  final pickedFile = await picker.pickImage(source: ImageSource.camera);
+                  if (pickedFile != null) {
+                    onImagePicked(File(pickedFile.path));
+                  }
+                },
+              ),
+            ],
+          ),
         );
       },
     );
@@ -207,31 +237,28 @@ class _UserProfileState extends ConsumerState<UserProfile> {
               ),
               itemCount: userPhotos.length,
               itemBuilder: (context, index) {
-                final photoUrl = userPhotos[index];
+                final photo = userPhotos[index];
                 return GestureDetector(
                   onTap: () async {
                     final updateResponse = await _databaseService
-                        .updateProfilePicture(widget.userId, photoUrl);
+                        .updateProfilePicture(widget.userId, photo.url);
                     if (updateResponse.success == true) {
-                      await FIREBASE_INSTANCE.currentUser?.updatePhotoURL(
-                          photoUrl); // Update Firebase profile picture URL
-                      ref.read(userProvider.notifier).setProfilePictureUrl(
-                          photoUrl); // Update UserProvider
+                      await currentUser?.updatePhotoURL(photo.url); // Update Firebase profile picture URL
+                      ref.read(userProvider.notifier).setProfilePictureUrl(photo.url); // Update UserProvider
                       setState(() {
-                        user!.ProfilePictureUrl = photoUrl;
+                        user!.ProfilePictureUrl = photo.url;
                       });
                       Navigator.pop(context);
                       await _refreshPhotos(); // Refresh photos after successful profile picture update
                     } else {
                       setState(() {
-                        errorMessage = updateResponse.message ??
-                            "Error updating profile picture";
+                        errorMessage = updateResponse.message ?? "Error updating profile picture";
                       });
                       Navigator.pop(context);
                     }
                   },
                   child: Image.network(
-                    photoUrl,
+                    photo.url,
                     fit: BoxFit.cover,
                   ),
                 );
@@ -447,8 +474,7 @@ class _UserProfileState extends ConsumerState<UserProfile> {
     user!.AboutMe = aboutMe;
     user!.DateOfBirth = dateOfBirth;
 
-    final response =
-    await _databaseService.updateUserData(widget.userId, user!);
+    final response = await _databaseService.updateUserData(widget.userId, user!);
     if (response.success == true) {
       await currentUser?.updateDisplayName(username);
       ref.read(userProvider.notifier).setUsername(username);
@@ -676,16 +702,12 @@ class _UserProfileState extends ConsumerState<UserProfile> {
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,
           ),
-          itemCount:
-          isUserProfileOwner ? userPhotos.length + 1 : userPhotos.length,
+          itemCount: isUserProfileOwner ? userPhotos.length + 1 : userPhotos.length,
           itemBuilder: (context, index) {
             if (isUserProfileOwner && index == userPhotos.length) {
               return GestureDetector(
                 onTap: () async {
-                  UploadPhotosWidget(
-                    userId: widget.userId,
-                    onUploadComplete: _refreshPhotos,
-                  ).pickAndUploadImages(context);
+                  _showImageSourceActionSheet(_handlePhotoUpload);
                 },
                 child: Container(
                   color: Colors.grey[200],
@@ -699,33 +721,33 @@ class _UserProfileState extends ConsumerState<UserProfile> {
                 ),
               );
             }
-            final photoUrl = userPhotos[index];
-            final isSelected = selectedPhotos.contains(photoUrl);
+            final photo = userPhotos[index];
+            final isSelected = selectedPhotos.contains(photo.url);
             return GestureDetector(
               onTap: () {
                 if (isSelectionMode) {
                   setState(() {
-                    if (photoUrl == user!.ProfilePictureUrl) {
+                    if (photo.url == user!.ProfilePictureUrl) {
                       selectionError = "Profile picture cannot be deleted.";
                     } else {
                       selectionError = '';
                       if (isSelected) {
-                        selectedPhotos.remove(photoUrl);
+                        selectedPhotos.remove(photo.url);
                       } else {
-                        selectedPhotos.add(photoUrl);
+                        selectedPhotos.add(photo.url);
                       }
                     }
                   });
                 } else {
-                  _showPhotoDialog(photoUrl);
+                  _showPhotoDialog(photo.url);
                 }
               },
               onLongPress: () {
                 if (isUserProfileOwner) {
-                  if (photoUrl != user!.ProfilePictureUrl) {
+                  if (photo.url != user!.ProfilePictureUrl) {
                     setState(() {
                       isSelectionMode = true;
-                      selectedPhotos.add(photoUrl);
+                      selectedPhotos.add(photo.url);
                     });
                   } else {
                     setState(() {
@@ -739,7 +761,7 @@ class _UserProfileState extends ConsumerState<UserProfile> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.network(
-                      photoUrl,
+                      photo.url,
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -773,6 +795,20 @@ class _UserProfileState extends ConsumerState<UserProfile> {
           ),
       ],
     );
+  }
+
+  Future<void> _handlePhotoUpload(File file) async {
+    final uploadResponse = await _storageService.uploadFile(
+        file, 'users/${widget.userId}_photos', DateTime.now().millisecondsSinceEpoch.toString());
+    if (uploadResponse.success == true) {
+      setState(() {
+        userPhotos.add(uploadResponse.data!);
+      });
+    } else {
+      setState(() {
+        errorMessage = uploadResponse.message ?? "Error uploading photo";
+      });
+    }
   }
 
   void _showPhotoDialog(String photoUrl) {

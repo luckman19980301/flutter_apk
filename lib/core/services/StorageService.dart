@@ -1,25 +1,29 @@
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:meet_chat/core/globals.dart';
+import 'package:meet_chat/core/models/FileMetadata.dart';
 import 'package:meet_chat/core/models/ServiceResponse.dart';
+import 'package:mime/mime.dart';
 
 abstract class IStorageService {
-  Future<ServiceResponse<String>> uploadFile(
+  Future<ServiceResponse<FileMetadata>> uploadFile(
       File? file, String directory, String fileName);
 
-  Future<ServiceResponse<List<String>>> getUserPhotos(String userId);
+  Future<ServiceResponse<List<FileMetadata>>> getUserPhotos(String userId);
 
   Future<ServiceResponse<void>> deleteFile(String fileUrl);
 }
 
 class StorageService implements IStorageService {
   @override
-  Future<ServiceResponse<String>> uploadFile(
+  Future<ServiceResponse<FileMetadata>> uploadFile(
       File? file, String directory, String fileName) async {
     try {
       if (file == null) {
         return ServiceResponse(
-            data: '', success: false, message: "No file provided.");
+            data: FileMetadata(url: '', type: '', size: 0, name: ''),
+            success: false,
+            message: "No file provided.");
       }
 
       final storageRef =
@@ -27,25 +31,48 @@ class StorageService implements IStorageService {
 
       await storageRef.putFile(file);
       final fileUrl = await storageRef.getDownloadURL();
+      final fileType = lookupMimeType(file.path) ?? 'application/octet-stream';
 
-      return ServiceResponse(data: fileUrl, success: true);
+      final fileMetadata = FileMetadata(
+        url: fileUrl,
+        type: fileType,
+        size: file.lengthSync(),
+        name: fileName,
+      );
+
+      return ServiceResponse(data: fileMetadata, success: true);
     } catch (err) {
-      return ServiceResponse(data: '', success: false, message: err.toString());
+      return ServiceResponse(
+          data: FileMetadata(url: '', type: '', size: 0, name: ''),
+          success: false,
+          message: err.toString());
     }
   }
 
   @override
-  Future<ServiceResponse<List<String>>> getUserPhotos(String userId) async {
+  Future<ServiceResponse<List<FileMetadata>>> getUserPhotos(String userId) async {
     try {
       final directoryName = 'users/${userId}_photos';
       final storageRef = FIREBASE_STORAGE.ref().child(directoryName);
 
       final ListResult result = await storageRef.listAll();
-      final List<String> photoUrls = await Future.wait(
-        result.items.map((Reference ref) => ref.getDownloadURL()).toList(),
+      final List<FileMetadata> photoMetadata = await Future.wait(
+        result.items.map((Reference ref) async {
+          final url = await ref.getDownloadURL();
+          final metadata = await ref.getMetadata();
+          final fileType = metadata.contentType ?? 'application/octet-stream';
+          final fileSize = metadata.size ?? 0;
+
+          return FileMetadata(
+            url: url,
+            type: fileType,
+            size: fileSize,
+            name: ref.name,
+          );
+        }).toList(),
       );
 
-      return ServiceResponse(data: photoUrls, success: true);
+      return ServiceResponse(data: photoMetadata, success: true);
     } catch (err) {
       return ServiceResponse(data: [], success: false, message: err.toString());
     }

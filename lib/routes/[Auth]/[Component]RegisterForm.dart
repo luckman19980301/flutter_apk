@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:meet_chat/components/ErrorMessageWidget.dart';
 import 'package:meet_chat/components/forms/UserImagePicker.dart';
 import 'package:meet_chat/components/forms/GenderSelectionInputButton.dart';
+import 'package:meet_chat/core/models/FileMetadata.dart';
 import 'package:meet_chat/core/models/ServiceResponse.dart';
 import 'package:meet_chat/core/models/UserModel.dart';
 import 'package:meet_chat/core/services/AuthenticationService.dart';
@@ -123,7 +124,7 @@ class _RegisterFormState extends State<RegisterForm> {
         return;
       }
 
-      ServiceResponse<String> storageResponse = await widget.storageService.uploadFile(
+      ServiceResponse<FileMetadata> storageResponse = await widget.storageService.uploadFile(
         _selectedImage!,
         'users/${userId}_photos',
         DateTime.now().millisecondsSinceEpoch.toString(),
@@ -139,7 +140,7 @@ class _RegisterFormState extends State<RegisterForm> {
       UserModel newUser = UserModel(
         Id: userId,
         Username: username,
-        ProfilePictureUrl: storageResponse.data.toString(),
+        ProfilePictureUrl: storageResponse.data!.url.toString(),
         UserGender: _selectedGender,
         Email: email,
         AboutMe: aboutMe,
