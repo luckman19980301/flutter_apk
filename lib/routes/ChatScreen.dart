@@ -3,12 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:meet_chat/components/AppHeader.dart';
-import 'package:meet_chat/core/globals.dart';
 import 'package:meet_chat/core/models/FileMetadata.dart';
-import 'package:meet_chat/core/models/Message.dart';
-import 'package:meet_chat/core/services/MessagingService.dart';
+import 'package:meet_chat/core/providers/ChatMessagesNotifier.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:timeago/timeago.dart' as timeago;
+
 
 class ChatScreen extends ConsumerStatefulWidget {
   static const String route = "chat";
@@ -23,7 +22,6 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final IMessagingService _messagingService = INJECTOR<IMessagingService>();
 
   void _sendMessage() async {
     if (_messageController.text.trim().isEmpty) {
@@ -39,7 +37,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final message = _messageController.text.trim();
     _messageController.clear();
 
-    await _messagingService.sendMessage(user.uid, widget.recipientId, message);
+    final messagingService = ref.read(messagingServiceProvider);
+    await messagingService.sendMessage(user.uid, widget.recipientId, message);
     _scrollToBottom();
   }
 
@@ -89,7 +88,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       return;
     }
 
-    await _messagingService.sendFileMessage(user.uid, widget.recipientId, file);
+    final messagingService = ref.read(messagingServiceProvider);
+    await messagingService.sendFileMessage(user.uid, widget.recipientId, file);
   }
 
   void _scrollToBottom() {
@@ -113,6 +113,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final messages = ref.watch(chatMessagesProvider(widget.recipientId));
+
     return Scaffold(
       appBar: const AppHeader(
         title: "Chat screen",
@@ -120,34 +122,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder<List<Message>>(
-              stream: _messagingService.loadMessages(FirebaseAuth.instance.currentUser!.uid, widget.recipientId),
-              builder: (ctx, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (!snapshot.hasData || snapshot.data == null) {
-                  return const Center(child: Text('No messages yet.'));
-                }
-
-                final messages = snapshot.data!;
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  itemCount: messages.length,
-                  itemBuilder: (ctx, index) {
-                    final message = messages[index];
-                    return ChatMessage(
-                      message: message.text,
-                      username: message.username,
-                      userImage: message.userImage,
-                      fileMetadata: message.file,
-                      isMe: message.senderId == FirebaseAuth.instance.currentUser?.uid,
-                      timestamp: message.createdAt,
-                      key: ValueKey(index),
-                    );
-                  },
+            child: messages.isEmpty
+                ? const Center(child: Text('No messages yet.'))
+                : ListView.builder(
+              controller: _scrollController,
+              itemCount: messages.length,
+              itemBuilder: (ctx, index) {
+                final message = messages[index];
+                return ChatMessage(
+                  message: message.text,
+                  username: message.username,
+                  userImage: message.userImage,
+                  fileMetadata: message.file,
+                  isMe: message.senderId == FirebaseAuth.instance.currentUser?.uid,
+                  timestamp: message.createdAt,
+                  key: ValueKey(index),
                 );
               },
             ),
@@ -164,14 +153,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(30),
+                      borderRadius: BorderRadius.circular(30), // Rounded corners for the text field
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
                     child: TextField(
                       controller: _messageController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'Send a message...',
-                        border: InputBorder.none,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(30), // Rounded corners for the border
+                          borderSide: BorderSide.none, // No visible border
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20), // Adjust padding if necessary
                       ),
                       onSubmitted: (_) => _sendMessage(),
                     ),
