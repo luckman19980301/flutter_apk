@@ -8,7 +8,6 @@ import 'package:meet_chat/core/providers/ChatMessagesNotifier.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
-
 class ChatScreen extends ConsumerStatefulWidget {
   static const String route = "chat";
   final String recipientId;
@@ -22,6 +21,25 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels <= _scrollController.position.minScrollExtent + 100 && !_scrollController.position.outOfRange) {
+      ref.read(chatMessagesProvider(widget.recipientId).notifier).loadMoreMessages();
+    }
+  }
 
   void _sendMessage() async {
     if (_messageController.text.trim().isEmpty) {
@@ -105,16 +123,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   @override
-  void dispose() {
-    _messageController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final messages = ref.watch(chatMessagesProvider(widget.recipientId));
-
+    final messagesState = ref.watch(chatMessagesProvider(widget.recipientId));
+    final isLoading = ref.watch(chatMessagesProvider(widget.recipientId).notifier).loading;
     return Scaffold(
       appBar: const AppHeader(
         title: "Chat screen",
@@ -122,13 +133,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: messages.isEmpty
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : messagesState.isEmpty
                 ? const Center(child: Text('No messages yet.'))
                 : ListView.builder(
               controller: _scrollController,
-              itemCount: messages.length,
+              itemCount: messagesState.length,
+              reverse: true,
               itemBuilder: (ctx, index) {
-                final message = messages[index];
+                final message = messagesState[index];
                 return ChatMessage(
                   message: message.text,
                   username: message.username,
