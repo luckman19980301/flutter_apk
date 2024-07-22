@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meet_chat/core/globals.dart';
@@ -28,17 +29,22 @@ class ChatMessagesNotifier extends StateNotifier<List<Message>> {
     });
   }
 
-  Future<void> loadMoreMessages() async {
-    if (isLoadingMore || lastMessageData == null) return;
+  Future<bool> loadMoreMessages() async {
+    if (isLoadingMore || lastMessageData == null) return false;
     isLoadingMore = true;
+
     try {
+      await Future.delayed(Duration(seconds: 2)); // Simulating network delay
       final moreMessages = await messagingService.loadMoreMessages(userId, recipientId, lastMessageData!, limit: limit);
       if (moreMessages.isNotEmpty) {
         lastMessageData = moreMessages.last.toMap();
         state = [...state, ...moreMessages]; // Append at the end
+        return moreMessages.length == limit;
       }
+      return false;
     } catch (e) {
       print('Error loading more messages: $e');
+      return false;
     } finally {
       isLoadingMore = false;
     }
