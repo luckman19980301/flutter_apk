@@ -20,7 +20,7 @@ class ChatMessagesNotifier extends StateNotifier<List<Message>> {
   Future<void> _loadInitialMessages() async {
     final messagesStream = messagingService.loadMessages(userId, recipientId, limit: limit);
     messagesStream.listen((messages) {
-      state = messages;
+      state = messages; // Maintain the order
       if (messages.isNotEmpty) {
         lastMessageData = messages.last.toMap();
       }
@@ -35,7 +35,7 @@ class ChatMessagesNotifier extends StateNotifier<List<Message>> {
       final moreMessages = await messagingService.loadMoreMessages(userId, recipientId, lastMessageData!, limit: limit);
       if (moreMessages.isNotEmpty) {
         lastMessageData = moreMessages.last.toMap();
-        state = [...state, ...moreMessages];
+        state = [...state, ...moreMessages]; // Append at the end
       }
     } catch (e) {
       print('Error loading more messages: $e');

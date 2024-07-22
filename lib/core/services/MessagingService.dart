@@ -7,10 +7,18 @@ import 'package:meet_chat/core/globals.dart';
 import 'package:meet_chat/core/services/StorageService.dart';
 
 abstract class IMessagingService {
-  Future<ServiceResponse<void>> sendMessage(String senderId, String recipientId, String message);
-  Future<ServiceResponse<void>> sendFileMessage(String senderId, String recipientId, File file);
-  Stream<List<Message>> loadMessages(String senderId, String recipientId, {int limit});
-  Future<List<Message>> loadMoreMessages(String userId, String recipientId, Map<String, dynamic> lastMessageData, {int limit});
+  Future<ServiceResponse<void>> sendMessage(
+      String senderId, String recipientId, String message);
+
+  Future<ServiceResponse<void>> sendFileMessage(
+      String senderId, String recipientId, File file);
+
+  Stream<List<Message>> loadMessages(String senderId, String recipientId,
+      {int limit});
+
+  Future<List<Message>> loadMoreMessages(
+      String userId, String recipientId, Map<String, dynamic> lastMessageData,
+      {int limit});
 }
 
 class MessagingService implements IMessagingService {
@@ -19,7 +27,8 @@ class MessagingService implements IMessagingService {
   final IStorageService _storageService = INJECTOR<IStorageService>();
 
   @override
-  Future<ServiceResponse<void>> sendMessage(String senderId, String recipientId, String message) async {
+  Future<ServiceResponse<void>> sendMessage(
+      String senderId, String recipientId, String message) async {
     try {
       final chatId = _getChatId(senderId, recipientId);
       final chatDocRef = _firestore.collection('chats').doc(chatId);
@@ -48,23 +57,28 @@ class MessagingService implements IMessagingService {
 
       return ServiceResponse<void>(data: null, success: true);
     } on Exception catch (err) {
-      return ServiceResponse<void>(data: null, message: err.toString(), success: false);
+      return ServiceResponse<void>(
+          data: null, message: err.toString(), success: false);
     }
   }
 
   @override
-  Future<ServiceResponse<void>> sendFileMessage(String senderId, String recipientId, File file) async {
+  Future<ServiceResponse<void>> sendFileMessage(
+      String senderId, String recipientId, File file) async {
     try {
       if (file.lengthSync() > 250 * 1024 * 1024) {
         return ServiceResponse<void>(message: "File size exceeds 250 MB.");
       }
 
       final chatId = _getChatId(senderId, recipientId);
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.path.split('/').last}';
-      final uploadResponse = await _storageService.uploadFile(file, 'chats/$chatId/files', fileName);
+      final fileName =
+          '${DateTime.now().millisecondsSinceEpoch}_${file.path.split('/').last}';
+      final uploadResponse = await _storageService.uploadFile(
+          file, 'chats/$chatId/files', fileName);
 
       if (uploadResponse.success == false) {
-        return ServiceResponse<void>(message: uploadResponse.message ?? "File upload failed.");
+        return ServiceResponse<void>(
+            message: uploadResponse.message ?? "File upload failed.");
       }
 
       final fileMetadata = uploadResponse.data!;
@@ -94,14 +108,20 @@ class MessagingService implements IMessagingService {
 
       return ServiceResponse<void>(data: null, success: true);
     } on Exception catch (err) {
-      return ServiceResponse<void>(data: null, message: err.toString(), success: false);
+      return ServiceResponse<void>(
+          data: null, message: err.toString(), success: false);
     }
   }
 
   @override
-  Stream<List<Message>> loadMessages(String senderId, String recipientId, {int limit = 20}) {
+  Stream<List<Message>> loadMessages(String senderId, String recipientId,
+      {int limit = 20}) {
     final chatId = _getChatId(senderId, recipientId);
-    return _firestore.collection('chats').doc(chatId).snapshots().map((snapshot) {
+    return _firestore
+        .collection('chats')
+        .doc(chatId)
+        .snapshots()
+        .map((snapshot) {
       if (!snapshot.exists) {
         return [];
       }
@@ -111,7 +131,10 @@ class MessagingService implements IMessagingService {
         return [];
       }
 
-      List<Map<String, dynamic>> messagesData = List<Map<String, dynamic>>.from(data['messages']);
+      List<Map<String, dynamic>> messagesData =
+          List<Map<String, dynamic>>.from(data['messages']);
+      messagesData.sort((a, b) =>
+          (b['createdAt'] as Timestamp).compareTo(a['createdAt'] as Timestamp));
       if (messagesData.length > limit) {
         messagesData = messagesData.sublist(0, limit);
       }
@@ -123,7 +146,9 @@ class MessagingService implements IMessagingService {
   }
 
   @override
-  Future<List<Message>> loadMoreMessages(String userId, String recipientId, Map<String, dynamic> lastMessageData, {int limit = 20}) async {
+  Future<List<Message>> loadMoreMessages(
+      String userId, String recipientId, Map<String, dynamic> lastMessageData,
+      {int limit = 20}) async {
     final chatId = _getChatId(userId, recipientId);
     final doc = await _firestore.collection('chats').doc(chatId).get();
     final data = doc.data();
@@ -132,7 +157,10 @@ class MessagingService implements IMessagingService {
       return [];
     }
 
-    List<Map<String, dynamic>> messagesData = List<Map<String, dynamic>>.from(data['messages']);
+    List<Map<String, dynamic>> messagesData =
+        List<Map<String, dynamic>>.from(data['messages']);
+    messagesData.sort((a, b) =>
+        (b['createdAt'] as Timestamp).compareTo(a['createdAt'] as Timestamp));
     int lastIndex = messagesData.indexWhere((messageData) {
       final lastTimestamp = lastMessageData['createdAt'] as Timestamp;
       final messageTimestamp = messageData['createdAt'] as Timestamp;
@@ -148,7 +176,8 @@ class MessagingService implements IMessagingService {
       endIndex = messagesData.length;
     }
 
-    List<Map<String, dynamic>> moreMessagesData = messagesData.sublist(lastIndex + 1, endIndex);
+    List<Map<String, dynamic>> moreMessagesData =
+        messagesData.sublist(lastIndex + 1, endIndex);
 
     return moreMessagesData.map((messageData) {
       return Message.fromMap(messageData, doc);

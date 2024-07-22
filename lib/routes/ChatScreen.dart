@@ -7,6 +7,10 @@ import 'package:meet_chat/core/models/FileMetadata.dart';
 import 'package:meet_chat/core/providers/ChatMessagesNotifier.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   static const String route = "chat";
@@ -36,8 +40,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels <= _scrollController.position.minScrollExtent + 100 && !_scrollController.position.outOfRange) {
-      ref.read(chatMessagesProvider(widget.recipientId).notifier).loadMoreMessages();
+    if (_scrollController.position.pixels <=
+            _scrollController.position.minScrollExtent + 100 &&
+        !_scrollController.position.outOfRange) {
+      ref
+          .read(chatMessagesProvider(widget.recipientId).notifier)
+          .loadMoreMessages();
     }
   }
 
@@ -125,7 +133,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final messagesState = ref.watch(chatMessagesProvider(widget.recipientId));
-    final isLoading = ref.watch(chatMessagesProvider(widget.recipientId).notifier).loading;
+    final isLoading =
+        ref.watch(chatMessagesProvider(widget.recipientId).notifier).loading;
     return Scaffold(
       appBar: const AppHeader(
         title: "Chat screen",
@@ -136,24 +145,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : messagesState.isEmpty
-                ? const Center(child: Text('No messages yet.'))
-                : ListView.builder(
-              controller: _scrollController,
-              itemCount: messagesState.length,
-              reverse: true,
-              itemBuilder: (ctx, index) {
-                final message = messagesState[index];
-                return ChatMessage(
-                  message: message.text,
-                  username: message.username,
-                  userImage: message.userImage,
-                  fileMetadata: message.file,
-                  isMe: message.senderId == FirebaseAuth.instance.currentUser?.uid,
-                  timestamp: message.createdAt,
-                  key: ValueKey(index),
-                );
-              },
-            ),
+                    ? const Center(child: Text('No messages yet.'))
+                    : ListView.builder(
+                        controller: _scrollController,
+                        itemCount: messagesState.length,
+                        reverse: true, // Reverse to show newest at the bottom
+                        itemBuilder: (ctx, index) {
+                          final message = messagesState[index];
+                          return ChatMessage(
+                            message: message.text,
+                            username: message.username,
+                            userImage: message.userImage,
+                            fileMetadata: message.file,
+                            isMe: message.senderId ==
+                                FirebaseAuth.instance.currentUser?.uid,
+                            timestamp: message.createdAt,
+                            key: ValueKey(index),
+                          );
+                        },
+                      ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
@@ -167,17 +177,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(30), // Rounded corners for the text field
+                      borderRadius: BorderRadius.circular(
+                          30),
                     ),
                     child: TextField(
                       controller: _messageController,
                       decoration: InputDecoration(
                         hintText: 'Send a message...',
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(30), // Rounded corners for the border
-                          borderSide: BorderSide.none, // No visible border
+                          borderRadius: BorderRadius.circular(30),
+                          borderSide: BorderSide.none,
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20), // Adjust padding if necessary
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20),
                       ),
                       onSubmitted: (_) => _sendMessage(),
                     ),
@@ -218,6 +230,48 @@ class ChatMessage extends StatelessWidget {
     return type.startsWith('image/');
   }
 
+  Future<void> _downloadFile(
+      BuildContext context, String fileUrl, String fileName) async {
+    if (Platform.isAndroid) {
+      if (await Permission.manageExternalStorage.isGranted != true) {
+        var status = await Permission.manageExternalStorage.request();
+        if (!status.isGranted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Storage permission not granted')),
+          );
+          return;
+        }
+      }
+    } else {
+      var status = await Permission.storage.request();
+      if (!status.isGranted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Storage permission not granted')),
+        );
+        return;
+      }
+    }
+
+    final dio = Dio();
+    final tempDir = await getTemporaryDirectory();
+    final tempFilePath = '${tempDir.path}/$fileName';
+
+    try {
+      await dio.download(fileUrl, tempFilePath);
+      final result = await ImageGallerySaver.saveFile(tempFilePath);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(result['isSuccess']
+                ? 'File saved to gallery'
+                : 'Failed to save file')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to download file')),
+      );
+    }
+  }
+
   void _showPhotoDialog(BuildContext context, String photoUrl) {
     showDialog(
       context: context,
@@ -241,6 +295,16 @@ class ChatMessage extends StatelessWidget {
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),
+              Positioned(
+                bottom: 20,
+                right: 20,
+                child: ElevatedButton.icon(
+                  onPressed: () =>
+                      _downloadFile(context, photoUrl, 'image.jpg'),
+                  icon: const Icon(Icons.download),
+                  label: const Text('Download'),
+                ),
+              ),
             ],
           ),
         );
@@ -257,18 +321,22 @@ class ChatMessage extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 10.0),
       child: Row(
-        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
           if (!isMe)
             CircleAvatar(
               radius: 18,
-              backgroundImage: userImage != null ? NetworkImage(userImage!) : null,
+              backgroundImage:
+                  userImage != null ? NetworkImage(userImage!) : null,
               child: userImage == null ? Text(username[0]) : null,
             ),
           const SizedBox(width: 8),
           Container(
             decoration: BoxDecoration(
-              color: isMe ? Theme.of(context).colorScheme.primary.withOpacity(0.1) : Theme.of(context).colorScheme.surface,
+              color: isMe
+                  ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                  : Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(12),
                 topRight: const Radius.circular(12),
@@ -281,13 +349,16 @@ class ChatMessage extends StatelessWidget {
             ),
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
             child: Column(
-              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
                 Text(
                   username,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: isMe ? Colors.black : Theme.of(context).textTheme.bodyMedium?.color,
+                    color: isMe
+                        ? Colors.black
+                        : Theme.of(context).textTheme.bodyMedium?.color,
                   ),
                 ),
                 if (message != null)
@@ -296,7 +367,9 @@ class ChatMessage extends StatelessWidget {
                     child: Text(
                       message!,
                       style: TextStyle(
-                        color: isMe ? Colors.black : Theme.of(context).textTheme.bodyMedium?.color,
+                        color: isMe
+                            ? Colors.black
+                            : Theme.of(context).textTheme.bodyMedium?.color,
                       ),
                       textAlign: isMe ? TextAlign.end : TextAlign.start,
                     ),
@@ -305,46 +378,62 @@ class ChatMessage extends StatelessWidget {
                   const SizedBox(height: 8),
                   _isImageFile(fileMetadata!.type)
                       ? GestureDetector(
-                    onTap: () => _showPhotoDialog(context, fileMetadata!.url),
-                    child: Container(
-                      width: 60,
-                      height: 60,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          fileMetadata!.url,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                  )
+                          onTap: () =>
+                              _showPhotoDialog(context, fileMetadata!.url),
+                          child: Stack(
+                            children: [
+                              Container(
+                                width: 60,
+                                height: 60,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    fileMetadata!.url,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: IconButton(
+                                  icon: const Icon(Icons.download,
+                                      color: Colors.white),
+                                  onPressed: () => _downloadFile(
+                                      context, fileMetadata!.url, 'image.jpg'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
                       : GestureDetector(
-                    onTap: () {
-                      // Handle file download or open
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 5),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.blue),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.file_present, color: Colors.blue),
-                          SizedBox(width: 5),
-                          Expanded(
-                            child: Text(
-                              'File',
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(color: Colors.blue),
+                          onTap: () {
+                            _downloadFile(context, fileMetadata!.url,
+                                'file.${fileMetadata!.type.split('/').last}');
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(top: 5),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.blue),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.file_present, color: Colors.blue),
+                                SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    'File',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(color: Colors.blue),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
+                        ),
                 ],
                 Padding(
                   padding: const EdgeInsets.only(top: 4.0),
@@ -364,7 +453,8 @@ class ChatMessage extends StatelessWidget {
               padding: const EdgeInsets.only(left: 8.0),
               child: CircleAvatar(
                 radius: 18,
-                backgroundImage: userImage != null ? NetworkImage(userImage!) : null,
+                backgroundImage:
+                    userImage != null ? NetworkImage(userImage!) : null,
                 child: userImage == null ? Text(username[0]) : null,
               ),
             ),
